@@ -27,6 +27,14 @@ pip install -r requirements.txt
 | 6 | `06_vqe_intro.py` | 変分量子固有値ソルバー（VQE）入門 |
 | 7 | `07_quantum_teleportation.py` | 量子テレポーテーション |
 
+### 応用編（バイオフィルム × 量子）
+
+| # | ファイル | 内容 |
+|---|---------|------|
+| 8 | `08_qaoa_basin_optimization.py` | QAOA × 多峰性 Basin 最適化（12 qubit） |
+| 9 | `09_quantum_kernel_bo.py` | 量子カーネル × ベイズ最適化（20D パラメータ） |
+| 10 | `10_ibm_quantum_real.py` | IBM Quantum 実機 QAOA + ノイズ緩和 |
+
 各ファイルは **そのまま実行可能** で、コメントで解説付きです。
 
 ## 実行
