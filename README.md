@@ -37,6 +37,11 @@ python 02_quantum_gates.py
 # ...
 ```
 
+## ドキュメント
+
+- [docs/research_landscape_2025.md](docs/research_landscape_2025.md) — 量子コンピューティング研究の最新動向
+- [docs/project_ideas.md](docs/project_ideas.md) — プロジェクト案とロードマップ
+
 ## 参考リソース
 
 - [Qiskit Textbook](https://learning.quantum.ibm.com/)
