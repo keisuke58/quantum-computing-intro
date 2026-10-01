@@ -8,3 +8,6 @@ pennylane>=0.35
 numpy
 matplotlib
 scipy
+
+# 11_qpinn_lame.py (QPINN ベンチ) 用
+torch>=2.0
