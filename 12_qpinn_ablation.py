@@ -145,9 +145,10 @@ def sweep_configs(quick=False):
 # ==============================================================
 # 4. 出力
 # ==============================================================
-def print_table(results):
+def print_table(results, n_seeds=1, pde_steps=None, colloc=None):
     print("\n" + "=" * 86)
-    print("  アブレーション結果（2 シード平均）")
+    seed_txt = f"{n_seeds} シード平均" if n_seeds > 1 else "1 シード"
+    print(f"  アブレーション結果（{seed_txt}）")
     print("=" * 86)
     print(f"{'qubit':>6}{'層':>4}{'再UP':>6}{'エンコード':>12}{'params':>8}"
           f"{'表現力':>12}{'PDE':>12}{'σ_r':>12}{'秒':>7}")
@@ -161,14 +162,15 @@ def print_table(results):
     print("両者の比が大きいほど『表現できるのに PDE 損失では学習できない』")
 
 
-def write_markdown(results, path):
+def write_markdown(results, path, n_seeds=1, pde_steps=2000, colloc=64):
+    seed_txt = f"{n_seeds} シード平均" if n_seeds > 1 else f"1 シード（seed=0）"
     lines = [
         "# QPINN アブレーション結果（ベンチ #1: 厚肉円筒）",
         "",
-        "生成元: `12_qpinn_ablation.py`（2 シード平均）。",
+        f"生成元: `12_qpinn_ablation.py`（{seed_txt}）。",
         "基準構成は 4 qubit / 3 層 / 再アップロード 2 回 / uniform エンコード。",
-        "collocation 64 点、Adam + cosine annealing。PDE 学習は 2000 step（1200 step では未収束で、",
-        "構成の差ではなく収束不足を測ってしまうことを実測で確認した）。",
+        f"collocation {colloc} 点、Adam + cosine annealing、PDE 学習 {pde_steps} step、教師あり 1500 step。",
+        "（1200 step では未収束で、構成の差ではなく収束不足を測ってしまうことを実測で確認した）",
         "",
         "- **表現力**: 解析解 u(r) を直接フィットした時の相対 L2。PDE 損失を使わないので、",
         "  その回路がこの関数を表現できるかだけを見る（＝達成可能な下限）。",
@@ -223,8 +225,9 @@ def main():
                                    pde_steps=args.pde_steps, sup_steps=args.sup_steps))
     print(f"\n総時間: {time.time() - t0:.0f}s")
 
-    print_table(results)
-    write_markdown(results, os.path.join(_HERE, args.out))
+    print_table(results, n_seeds=args.seeds)
+    write_markdown(results, os.path.join(_HERE, args.out), n_seeds=args.seeds,
+                   pde_steps=args.pde_steps, colloc=args.colloc)
     return results
 
 
