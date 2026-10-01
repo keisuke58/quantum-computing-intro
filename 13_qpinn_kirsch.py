@@ -461,17 +461,28 @@ def n_params(model):
 # ==============================================================
 # 6. 学習
 # ==============================================================
-def train(name, model, steps=3000, lr=0.01, n_colloc=512, n_bc=64, log_every=500):
+def train(name, model, steps=3000, lr=0.01, n_colloc=512, n_bc=64, log_every=500,
+          lbfgs_steps=0):
+    """Adam で学習し、必要なら L-BFGS で仕上げる。
+
+    L-BFGS 仕上げは PINN の定番で、Adam が止まった後に 1〜2 桁効くことがある
+    （OIST の Rakala 実装 github.com/GeetRakala/QPINN も Adam → L-BFGS-B）。
+    ベンチ #2 では「表現力を直すと最適化が律速になる」と分かったので、ここが効くはず。
+    """
     xy, xy_in, xy_out, th_b = sample_points(n_colloc, n_bc)
     ue, ve = uv_exact(xy_out[:, 0].numpy(), xy_out[:, 1].numpy())
     uv_out_ref = torch.tensor(np.stack([ue, ve], axis=1))
 
+    def closure_loss():
+        return pinn_loss(model, xy, xy_in, xy_out, uv_out_ref, th_b)
+
     opt = torch.optim.Adam(model.parameters(), lr=lr)
-    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=steps, eta_min=lr * 0.01)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(steps, 1),
+                                                       eta_min=lr * 0.01)
     t0 = time.time()
     for step in range(steps):
         opt.zero_grad()
-        loss, l_pde, l_hole, l_dir = pinn_loss(model, xy, xy_in, xy_out, uv_out_ref, th_b)
+        loss, l_pde, l_hole, l_dir = closure_loss()
         loss.backward()
         opt.step()
         sched.step()
@@ -479,12 +490,45 @@ def train(name, model, steps=3000, lr=0.01, n_colloc=512, n_bc=64, log_every=500
             print(f"    step {step:5d}  loss={loss.item():.3e} "
                   f"(pde={l_pde:.2e}, hole={l_hole:.2e}, dir={l_dir:.2e})  "
                   f"rel_L2(u)={rel_l2_uv(model):.3e}", flush=True)
-    dt = time.time() - t0
+    t_adam = time.time() - t0
+    res_adam = {"u_err": rel_l2_uv(model), "s_err": rel_l2_stress(model),
+                "kt": kt_predicted(model)}
+    print(f"    [Adam 終了] rel_L2(u)={res_adam['u_err']:.3e}, "
+          f"K_t={res_adam['kt']:.3f}, {t_adam:.0f}s", flush=True)
 
+    # --- L-BFGS 仕上げ ---
+    t_lbfgs = 0.0
+    if lbfgs_steps > 0:
+        t1 = time.time()
+        lopt = torch.optim.LBFGS(model.parameters(), lr=1.0, max_iter=20,
+                                 history_size=50, line_search_fn="strong_wolfe",
+                                 tolerance_grad=1e-12, tolerance_change=1e-14)
+
+        def closure():
+            lopt.zero_grad()
+            loss, *_ = closure_loss()
+            loss.backward()
+            return loss
+
+        for it in range(lbfgs_steps):
+            loss = lopt.step(closure)
+            if not torch.isfinite(loss):
+                print(f"    [L-BFGS] loss が発散したので {it} 回で打ち切り", flush=True)
+                break
+            if it % max(lbfgs_steps // 4, 1) == 0 or it == lbfgs_steps - 1:
+                print(f"    L-BFGS {it:4d}  loss={loss.item():.3e}  "
+                      f"rel_L2(u)={rel_l2_uv(model):.3e}", flush=True)
+        t_lbfgs = time.time() - t1
+
+    dt = t_adam + t_lbfgs
     res = {"name": name, "n_param": n_params(model), "u_err": rel_l2_uv(model),
-           "s_err": rel_l2_stress(model), "kt": kt_predicted(model), "time": dt}
+           "s_err": rel_l2_stress(model), "kt": kt_predicted(model), "time": dt,
+           "adam_u_err": res_adam["u_err"], "adam_kt": res_adam["kt"],
+           "t_adam": t_adam, "t_lbfgs": t_lbfgs}
+    tag = f" (Adam {t_adam:.0f}s + L-BFGS {t_lbfgs:.0f}s)" if lbfgs_steps else ""
     print(f"  → {name}: rel_L2(u)={res['u_err']:.3e}, rel_L2(σ)={res['s_err']:.3e}, "
-          f"K_t={res['kt']:.3f} (真値 3.000), params={res['n_param']}, {dt:.0f}s", flush=True)
+          f"K_t={res['kt']:.3f} (真値 3.000), params={res['n_param']}, {dt:.0f}s{tag}",
+          flush=True)
     return res
 
 
@@ -543,7 +587,7 @@ def expressivity_sweep(configs=((4, 3, 2), (6, 3, 2), (8, 3, 2), (4, 3, 3), (6, 
 
 
 def main(steps=20000, q_steps=1500, n_colloc=512, seed=0, skip_qpinn=False,
-         with_supervised=True):
+         with_supervised=True, lbfgs_steps=0):
     print("=" * 72)
     print("  QPINN ベンチ #2: 円孔付き板の応力集中（Kirsch 解）")
     print("=" * 72)
@@ -564,7 +608,8 @@ def main(steps=20000, q_steps=1500, n_colloc=512, seed=0, skip_qpinn=False,
         print(f"  {name}")
         print("=" * 72)
         torch.manual_seed(seed)
-        r = train(name, ctor(), steps=st, lr=lr, n_colloc=n_colloc)
+        r = train(name, ctor(), steps=st, lr=lr, n_colloc=n_colloc,
+                  lbfgs_steps=lbfgs_steps)
         if with_supervised:
             torch.manual_seed(seed)
             sup_u, sup_kt = supervised_fit(ctor())
@@ -601,6 +646,8 @@ if __name__ == "__main__":
     ap.add_argument("--no-supervised", action="store_true")
     ap.add_argument("--verify-only", action="store_true",
                     help="解析解の検証だけ実行する")
+    ap.add_argument("--lbfgs", type=int, default=0, dest="lbfgs_steps",
+                    help="Adam の後に回す L-BFGS の反復数（1反復あたり最大20回の内部反復）")
     ap.add_argument("--expressivity-sweep", action="store_true",
                     help="QPINN の表現力スイープだけ実行する（PDE 学習なし）")
     args = ap.parse_args()
@@ -613,4 +660,4 @@ if __name__ == "__main__":
     else:
         main(steps=args.steps, q_steps=args.q_steps, n_colloc=args.colloc,
              seed=args.seed, skip_qpinn=args.skip_qpinn,
-             with_supervised=not args.no_supervised)
+             with_supervised=not args.no_supervised, lbfgs_steps=args.lbfgs_steps)
