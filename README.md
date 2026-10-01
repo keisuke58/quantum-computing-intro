@@ -41,12 +41,18 @@ pip install -r requirements.txt
 |---|---------|------|
 | 11 | `11_qpinn_lame.py` | QPINN ベンチ #1: 厚肉円筒（Lamé 解）。古典 PINN / Fourier feature PINN / QPINN の比較 |
 | 12 | `12_qpinn_ablation.py` | QPINN アブレーション: 表現力（教師ありフィット）と最適化可能性（PDE 学習）を分離 |
+| 13 | `13_qpinn_kirsch.py` | QPINN ベンチ #2: 円孔付き板の応力集中（Kirsch 解）。2D ベクトル場・多出力読み出し |
 
 ```bash
 python 11_qpinn_lame.py              # 単一シードで3モデル比較
 python 11_qpinn_lame.py --seeds 5    # 古典2モデルを5シードで平均±標準偏差
 python 12_qpinn_ablation.py          # 回路構成を振るスイープ（CPU で約1時間）
 python 12_qpinn_ablation.py --quick  # 構成を減らした短縮版
+
+python 13_qpinn_kirsch.py --verify-only        # 解析解（Kirsch）の検証だけ
+python 13_qpinn_kirsch.py --skip-qpinn         # 古典モデルだけ（数分）
+python 13_qpinn_kirsch.py                      # 全部（QPINN 込みで CPU 約30分）
+python 13_qpinn_kirsch.py --expressivity-sweep # QPINN の表現力スイープ
 ```
 
 必要: `torch`, `pennylane`
@@ -68,6 +74,7 @@ python 02_quantum_gates.py
 - [docs/qpinn_rocket_research_plan.md](docs/qpinn_rocket_research_plan.md) — QPINN × 固体変形（ロケット構造）研究構想（2026/10–2027/5）
 - [docs/qpinn_plan_review.md](docs/qpinn_plan_review.md) — 上記計画のレビュー・文献確認・ベンチ #1 の実測結果
 - [docs/qpinn_ablation_results.md](docs/qpinn_ablation_results.md) — 回路構成のアブレーション結果（表現力 vs 最適化可能性）
+- [docs/qpinn_kirsch_results.md](docs/qpinn_kirsch_results.md) — ベンチ #2（円孔付き板）の結果。2D では表現力が律速に入れ替わる
 
 ## 参考リソース
 
