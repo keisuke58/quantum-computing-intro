@@ -35,6 +35,19 @@ pip install -r requirements.txt
 | 9 | `09_quantum_kernel_bo.py` | 量子カーネル × ベイズ最適化（20D パラメータ） |
 | 10 | `10_ibm_quantum_real.py` | IBM Quantum 実機 QAOA + ノイズ緩和 |
 
+### 研究編（QPINN × 固体力学）
+
+| # | ファイル | 内容 |
+|---|---------|------|
+| 11 | `11_qpinn_lame.py` | QPINN ベンチ #1: 厚肉円筒（Lamé 解）。古典 PINN / Fourier feature PINN / QPINN の比較 |
+
+```bash
+python 11_qpinn_lame.py              # 単一シードで3モデル比較
+python 11_qpinn_lame.py --seeds 5    # 古典2モデルを5シードで平均±標準偏差
+```
+
+必要: `torch`, `pennylane`
+
 各ファイルは **そのまま実行可能** で、コメントで解説付きです。
 
 ## 実行
@@ -49,6 +62,8 @@ python 02_quantum_gates.py
 
 - [docs/research_landscape_2025.md](docs/research_landscape_2025.md) — 量子コンピューティング研究の最新動向
 - [docs/project_ideas.md](docs/project_ideas.md) — プロジェクト案とロードマップ
+- [docs/qpinn_rocket_research_plan.md](docs/qpinn_rocket_research_plan.md) — QPINN × 固体変形（ロケット構造）研究構想（2026/10–2027/5）
+- [docs/qpinn_plan_review.md](docs/qpinn_plan_review.md) — 上記計画のレビュー・文献確認・ベンチ #1 の実測結果
 
 ## 参考リソース
 
