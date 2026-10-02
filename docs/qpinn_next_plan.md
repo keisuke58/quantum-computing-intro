@@ -194,3 +194,13 @@ Kirsch のような滑らかな解では古典の低周波特徴量が強い．�
 
 発表（3 か月後，台湾）の構成案: 変分 QPINN の否定的結果 → QERC-PINN（最適化の壁なし）→ リザバーの役割の理論
 （エンコード空間の次元 > 2^N のときだけ効く）→ ショットノイズ → 公平な比較（cos 型古典特徴量を含む）→ 周期微細構造への応用．
+
+### 既存資産（keisuke58/wccm2026-cfrp-gnn，WCCM 2026 用リポジトリ）
+
+そのまま参照解・対照に使えるものがある:
+- `tsv_thermal_stress.py`：TSV の 2D 平面ひずみ熱弾性 FE（CST），Cu ビア配列，von Mises と KOZ 抽出，CNN サロゲート
+- `tsv_3d_stress.py`，`tsv_interface_fracture.py`：3D 版，界面破壊
+- `cfrp_cure_residual_stress_fe.py`：[0/90] 積層の硬化残留応力 FE
+- `cfrtp_*`：CFRTP の残留応力・層間・含浸ボイド
+
+→ TSV 周期配列・CFRP の参照解（FE）はこのリポジトリのソルバーを流用する．
