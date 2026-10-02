@@ -45,14 +45,19 @@ def _pre(x, y):
     return r, th, jnp.arccos(xi)
 
 
-def make_qerc(N, seed):
-    U = jnp.asarray(Q.ising_U(N, seed))
+def make_qerc(N, seed, t=1.0, scale=None, k_theta=None):
+    """scale, k_theta を与えると低周波版: 全 qubit の RY に scale·a1，RZ(θ) は先頭 k_theta 個だけ。
+    θ の最高周波数は k_theta，ρ 方向は scale で抑えられる（2 階微分での増幅を防ぐ）"""
+    U = jnp.asarray(Q.ising_U(N, seed, t=t))
 
     def feat(x, y):
         _, th, a1 = _pre(x, y)
         psi = jnp.ones((1,), complex)
         for i in range(N):
-            ay, az = (a1, th) if i % 2 == 0 else (th, a1)
+            if scale is None:
+                ay, az = (a1, th) if i % 2 == 0 else (th, a1)
+            else:
+                ay, az = scale * a1, (th if i < k_theta else 0.0 * th)
             q = jnp.stack([jnp.cos(ay / 2) * jnp.exp(-0.5j * az),
                            jnp.sin(ay / 2) * jnp.exp(0.5j * az)])
             psi = jnp.kron(psi, q)
@@ -161,6 +166,10 @@ def main():
     ap.add_argument("--n_bc", type=int, default=400)
     ap.add_argument("--w_bc", type=float, default=10.0)
     ap.add_argument("--ridge", type=float, default=1e-10)
+    ap.add_argument("--t", type=float, default=1.0, help="イジング時間発展の時間")
+    ap.add_argument("--scale", type=float, default=None, help="低周波版: ρ 角の倍率")
+    ap.add_argument("--k_theta", type=int, default=2, help="低周波版: θ を入れる qubit 数")
+    ap.add_argument("--only_q", action="store_true")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
@@ -168,8 +177,9 @@ def main():
     for N in map(int, a.N.split(",")):
         for sd in range(a.seeds):
             pts = points(a.n_in, a.n_bc, 100 + sd)
-            for kind in ("QERC", "古典RF"):
-                feat, m = make_qerc(N, sd) if kind == "QERC" else make_crf(2**N, sd)
+            for kind in (("QERC",) if a.only_q else ("QERC", "古典RF")):
+                feat, m = (make_qerc(N, sd, a.t, a.scale, a.k_theta) if kind == "QERC"
+                           else make_crf(2**N, sd))
                 t0 = time.time()
                 fns = make_basis(feat)
                 Amat, b = assemble(fns, *pts, a.w_bc)
