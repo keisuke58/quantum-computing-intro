@@ -88,7 +88,7 @@ def main():
     a = ap.parse_args()
     grid = {
         "QERC-Haar": ([1.0, 2.0, 4.0], lambda sd, s: T.make_qerc(a.N, sd, s)),
-        "tensor-RP": ([1.0, 2.0, 4.0], lambda sd, s: make_tensor_rp(a.N, sd, s)),
+        "tensor-RP": ([2.0, 4.0], lambda sd, s: make_tensor_rp(a.N, sd, s)),
         "MLP2-RF": ([1.0, 2.0, 4.0, 8.0], lambda sd, s: make_mlp2(a.N, sd, s)),
     }
     rows = []
