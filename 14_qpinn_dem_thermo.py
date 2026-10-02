@@ -203,8 +203,9 @@ class MLP(torch.nn.Module):
 _DEV_CACHE, _QNODE_CACHE = {}, {}
 
 
-def _get_qnode(n_qubits, n_layers, n_encode):
-    key = (n_qubits, n_layers, n_encode)
+def _get_qnode(n_qubits, n_layers, n_encode, entangle=True):
+    """entangle=False で CNOT を全部外す（積状態のみ＝古典で効率よく計算できる対照）"""
+    key = (n_qubits, n_layers, n_encode, entangle)
     if key in _QNODE_CACHE:
         return _QNODE_CACHE[key]
     if n_qubits not in _DEV_CACHE:
@@ -220,8 +221,9 @@ def _get_qnode(n_qubits, n_layers, n_encode):
                 for w in range(n_qubits):
                     qml.RY(theta[e, l, w, 0], wires=w)
                     qml.RZ(theta[e, l, w, 1], wires=w)
-                for w in range(n_qubits - 1):
-                    qml.CNOT(wires=[w, w + 1])
+                if entangle:
+                    for w in range(n_qubits - 1):
+                        qml.CNOT(wires=[w, w + 1])
         return [qml.expval(qml.PauliZ(w)) for w in range(n_qubits)]
 
     _QNODE_CACHE[key] = circuit
@@ -237,14 +239,20 @@ class QPINNHybrid(torch.nn.Module):
     古典層だけでは駄目＝量子回路が実際に寄与していることの証拠だった）。
     """
 
-    def __init__(self, d_in, d_out, seed=0, n_qubits=4, n_layers=3, n_encode=2, hidden=8):
+    def __init__(self, d_in, d_out, seed=0, n_qubits=4, n_layers=3, n_encode=2, hidden=8,
+                 entangle=True, identity_width=None):
+        """identity_width を与えると量子回路を恒等写像に置き換えた対照になる
+        （前後の古典層は同じ幅のまま）。n_qubits=0 の旧対照は幅1に潰れるので、
+        公平な対照としてはこちらを使う。"""
         super().__init__()
+        if identity_width is not None:
+            n_qubits = 0
         self.n_qubits = n_qubits
-        w = max(n_qubits, 1)
+        w = identity_width if identity_width is not None else max(n_qubits, 1)
         self.pre = torch.nn.Sequential(
             torch.nn.Linear(d_in, hidden), torch.nn.Tanh(), torch.nn.Linear(hidden, w))
         if n_qubits > 0:
-            self.circuit = _get_qnode(n_qubits, n_layers, n_encode)
+            self.circuit = _get_qnode(n_qubits, n_layers, n_encode, entangle=entangle)
             g = torch.Generator().manual_seed(seed)
             self.theta = torch.nn.Parameter(
                 torch.rand(n_encode, n_layers, n_qubits, 2, generator=g) * 2 * math.pi)
