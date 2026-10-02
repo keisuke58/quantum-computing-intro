@@ -45,6 +45,16 @@ def _load(name, fname):
 
 
 W_DATA = 10.0   # データ損失の重み（境界条件の重みと同程度）
+NOISE = 0.0     # データに加えるノイズ（データの RMS に対する相対値．0.01 = 1%）
+
+
+def _add_noise(d, seed):
+    """データの RMS に比例したガウスノイズを加える（評価は常にノイズなしの解析解と比較）"""
+    if NOISE <= 0:
+        return d
+    g = torch.Generator().manual_seed(5000 + seed)
+    rms = torch.sqrt((d ** 2).mean())
+    return d + NOISE * rms * torch.randn(d.shape, generator=g)
 
 
 # ==============================================================
@@ -57,7 +67,7 @@ def run_lame(model, n_data, seed, steps, lr, lbfgs):
     r_b = torch.tensor([L.A_IN, L.B_OUT])
     if n_data > 0:
         r_d = L.A_IN + (L.B_OUT - L.A_IN) * torch.rand(n_data, generator=g)
-        u_d = torch.tensor(L.u_exact(r_d.numpy()))
+        u_d = _add_noise(torch.tensor(L.u_exact(r_d.numpy())), seed)
 
     def loss_fn():
         loss = L.pinn_loss(model, r_c, r_b)[0]
@@ -94,7 +104,7 @@ def run_kirsch(model, n_data, seed, steps, lr, lbfgs):
         th = torch.rand(n_data, generator=g) * 2 * np.pi
         xy_d = torch.stack([r * torch.cos(th), r * torch.sin(th)], dim=1)
         ud, vd = K.uv_exact(xy_d[:, 0].numpy(), xy_d[:, 1].numpy())
-        uv_d = torch.tensor(np.stack([ud, vd], axis=1))
+        uv_d = _add_noise(torch.tensor(np.stack([ud, vd], axis=1)), seed)
 
     def loss_fn():
         loss = K.pinn_loss(model, xy, xy_in, xy_out, uv_out, th_b)[0]
@@ -156,7 +166,10 @@ def main():
     ap.add_argument("--c-steps", type=int, default=3000)
     ap.add_argument("--q-steps", type=int, default=None)
     ap.add_argument("--json", default=None)
+    ap.add_argument("--noise", type=float, default=0.0, help="データのノイズ（RMS 比，0.05 = 5%%）")
     a = ap.parse_args()
+    global NOISE
+    NOISE = a.noise
 
     if a.problem == "lame":
         run, models_fn = run_lame, lame_models
@@ -179,10 +192,10 @@ def main():
                 # QPINN は Adam のみ（L-BFGS は 1.1 倍しか効かず時間が 2 倍になった）
                 r = run(m, n, seed, q_steps if is_q else a.c_steps,
                         q_lr if is_q else 0.01, 0 if is_q else 30)
-                r.update({"problem": a.problem, "model": name, "ndata": n, "seed": seed})
+                r.update({"problem": a.problem, "model": name, "ndata": n, "seed": seed, "noise": NOISE})
                 rows.append(r)
                 kt = f"  K_t={r['kt']:.3f}" if r["kt"] is not None else ""
-                print(f"{a.problem} {name:<6} n_data={n:<4} seed={seed}  params={r['n_param']:<5}"
+                print(f"{a.problem} noise={NOISE:.0%} {name:<6} n_data={n:<4} seed={seed}  params={r['n_param']:<5}"
                       f" u={r['u']:.3e}  σ={r['s']:.3e}{kt}  {r['time']:.0f}s", flush=True)
                 if a.json:
                     json.dump(rows, open(a.json, "w"), ensure_ascii=False, indent=1)
