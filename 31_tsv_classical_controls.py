@@ -42,9 +42,10 @@ def make_tensor_rp(N, seed, scale, m=None):
     Z = (g.normal(size=(m, d, d)) + 1j * g.normal(size=(m, d, d))) / np.sqrt(2 * d)
     R = jnp.asarray((Z + np.conj(np.transpose(Z, (0, 2, 1)))) / 2)      # GUE
 
-    def feat(x, y):
+    def feat(x, y, R=R):
         p = _psi(angf(x, y), N)
         return jnp.real(jnp.einsum("i,kij,j->k", jnp.conj(p), R, p))
+    feat.extra = R            # jit の定数畳み込みを避けるため，R は引数として渡す
     return feat
 
 
@@ -57,13 +58,18 @@ def make_mlp2(N, seed, scale):
 
 def chunked_derivs(feat, chunk=256):
     """30 の derivs と同じ出力を，メモリを抑えるため点を分割して計算する"""
-    f = lambda p: feat(p[0], p[1])
-    fs = [jax.jit(jax.vmap(f)), jax.jit(jax.vmap(jax.jacfwd(f))), jax.jit(jax.vmap(jax.jacfwd(jax.jacfwd(f))))]
+    extra = getattr(feat, "extra", None)
+    if extra is not None:
+        chunk = 32
+    f = lambda p, e: feat(p[0], p[1], e) if extra is not None else feat(p[0], p[1])
+    fs = [jax.jit(jax.vmap(f, (0, None))), jax.jit(jax.vmap(jax.jacfwd(f), (0, None))),
+          jax.jit(jax.vmap(jax.jacfwd(jax.jacfwd(f)), (0, None)))]
 
     def wrap(fn):
         def g(P):
             P = np.asarray(P)
-            return np.concatenate([np.asarray(fn(jnp.asarray(P[i:i + chunk]))) for i in range(0, len(P), chunk)])
+            return np.concatenate([np.asarray(fn(jnp.asarray(P[i:i + chunk]), extra))
+                                   for i in range(0, len(P), chunk)])
         return g
     return tuple(wrap(fn) for fn in fs)
 
