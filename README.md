@@ -1,87 +1,73 @@
-# Quantum Computing 入門
+# nishioka-qpinn-solid
 
-量子コンピューティング初心者のための学習リポジトリ。
-Qiskit を使って、量子ゲート・量子回路・量子アルゴリズムを段階的に学べます。
+Quantum physics-informed neural networks (QPINN) and quantum extreme reservoir computing (QERC)
+for solid mechanics, benchmarked against **size-matched and tuned classical models**.
 
-## 対象者
+The project asks a simple question: *when a quantum circuit is used to solve a PDE, what does it
+actually contribute?* Every quantum model here is compared with classical controls of the same size,
+including a model with the quantum circuit removed and a classical model that uses exactly the same
+function space as the quantum features.
 
-- プログラミング（Python）の基礎がある人
-- 量子コンピューティングに興味があるけど何から始めればいいかわからない人
-- 線形代数の基礎（行列・ベクトル）をなんとなく知っている人
+> Japanese introduction to the earlier tutorial scripts (01–10): [`README_ja.md`](README_ja.md).
+> Detailed notes and all result tables (Japanese): [`docs/qpinn_next_plan.md`](docs/qpinn_next_plan.md).
 
-## セットアップ
+## Main findings
+
+| # | Finding | Evidence |
+|---|---|---|
+| 1 | **Variational QPINNs lose to size-matched classical models.** The circuit adds nothing that a same-size MLP or the same network with the circuit removed cannot do, in solid mechanics (Lamé, Kirsch, 2D thermoelasticity) and in fluids (cylinder wake, reproduction of G. Rakala's open-source QPINN). | `15`, `18`, `docs/qpinn_controls_results.md`, `figs/cyl_*` |
+| 2 | **The bottleneck is optimisation, not expressivity.** The circuits can fit the exact solutions to ~1e-3, but PDE-loss training stalls at 5e-2–1. | `12`, `13` |
+| 3 | **With a fixed reservoir and a linear readout, the reservoir does not change what can be represented.** Features p_k(x) = Tr[U†\|k⟩⟨k\|U ρ(x)] are linear in ρ(x), so their span is bounded by the encoding. The reservoir only matters when the encoding space is larger than 2^N (e.g. per-qubit inputs as in Ikeda et al. 2026); Clifford-only reservoirs are not enough. | `22`, `24`, `25`, `figs/qerc_reservoir.*` |
+| 4 | **QERC-PINN (least-squares solve, no training loop) removes the optimisation wall.** On Kirsch it matches tuned tanh random features (~5e-5), but cosine features (Fourier PIELM, FS-PIELM) are ~40× better. | `26`, `29`, `figs/qerc_seeds.*`, `figs/qerc_fair_scales.*` |
+| 5 | **On a Cu/Si TSV with a material interface, QERC beats 1-layer classical random features by ~10×, but a classical random projection of the same tensor-product space matches it exactly.** The gain comes from the tensor-product function space, not from anything specifically quantum. | `30`, `31`, `figs/tsv_controls.*` |
+| 6 | **Shot noise is severe.** With parameter-shift derivatives, even 10^7 shots per circuit leave 4–11 % error and K_t = 2.5–2.8 (exact 3). | `27`, `figs/qerc_shot_noise.*` |
+| 7 | **Random reservoirs fail in high-dimensional parametric problems.** For laminate wave dispersion with d = N layers, all random-feature models fail; random projections of an exponentially large space capture an exponentially small part of the target. | `33` |
+
+## Repository layout
+
+| Scripts | Content |
+|---|---|
+| `01`–`10` | Introductory quantum computing scripts (qubits, gates, VQE, QAOA, IBM hardware) |
+| `11`–`17` | Variational QPINN for solid mechanics: Lamé cylinder, ablation, Kirsch plate (stress concentration), deep energy method for thermoelasticity, classical controls, data assimilation with noise, wafer warpage |
+| `18`, `23` | Reproduction and improvement study of the open-source QPINN for the cylinder wake (G. Rakala, OIST), with figures |
+| `19`–`22` | Physics-aware encodings, quantum extreme learning probes, QERC features, QERC-PINN solved by least squares |
+| `24`–`29`, `32` | Reservoir-role analysis, Ikeda-type encoder, 5-seed comparisons, shot noise, fair scale tuning incl. Fourier PIELM / FS-PIELM, figures |
+| `30`, `31` | Single TSV (Cu via in Si) thermal stress with domain decomposition, and classical controls |
+| `33` | High-dimensional parametric benchmark (laminate wave dispersion) |
+| `docs/` | Result notes and research plans (Japanese) |
+| `figs/` | Figures (PNG and PDF) |
+| `results/` | Raw results (JSON) |
+
+Exact solutions (Lamé, Kirsch via Muskhelishvili potentials, thermoelastic annulus, single TSV) are
+implemented in the scripts and verified numerically before use.
+
+## Setup
 
 ```bash
 pip install -r requirements.txt
+pip install jax          # tested with JAX 0.10.2, PennyLane 0.45.1
 ```
 
-## コンテンツ
-
-| # | ファイル | 内容 |
-|---|---------|------|
-| 1 | `01_qubit_basics.py` | 量子ビット、重ね合わせ、測定 |
-| 2 | `02_quantum_gates.py` | 基本ゲート（X, H, CNOT）と回路の可視化 |
-| 3 | `03_entanglement.py` | Bell状態、量子もつれ、非局所性 |
-| 4 | `04_deutsch_jozsa.py` | Deutsch-Jozsaアルゴリズム（量子の優位性を初体験） |
-| 5 | `05_grover_search.py` | Groverの探索アルゴリズム（√N 高速化） |
-| 6 | `06_vqe_intro.py` | 変分量子固有値ソルバー（VQE）入門 |
-| 7 | `07_quantum_teleportation.py` | 量子テレポーテーション |
-
-### 応用編（バイオフィルム × 量子）
-
-| # | ファイル | 内容 |
-|---|---------|------|
-| 8 | `08_qaoa_basin_optimization.py` | QAOA × 多峰性 Basin 最適化（12 qubit） |
-| 9 | `09_quantum_kernel_bo.py` | 量子カーネル × ベイズ最適化（20D パラメータ） |
-| 10 | `10_ibm_quantum_real.py` | IBM Quantum 実機 QAOA + ノイズ緩和 |
-
-### 研究編（QPINN × 固体力学）
-
-| # | ファイル | 内容 |
-|---|---------|------|
-| 11 | `11_qpinn_lame.py` | QPINN ベンチ #1: 厚肉円筒（Lamé 解）。古典 PINN / Fourier feature PINN / QPINN の比較 |
-| 12 | `12_qpinn_ablation.py` | QPINN アブレーション: 表現力（教師ありフィット）と最適化可能性（PDE 学習）を分離 |
-| 13 | `13_qpinn_kirsch.py` | QPINN ベンチ #2: 円孔付き板の応力集中（Kirsch 解）。2D ベクトル場・多出力読み出し |
+All experiments run on CPU (state-vector simulation). Examples:
 
 ```bash
-python 11_qpinn_lame.py              # 単一シードで3モデル比較
-python 11_qpinn_lame.py --seeds 5    # 古典2モデルを5シードで平均±標準偏差
-python 12_qpinn_ablation.py          # 回路構成を振るスイープ（CPU で約1時間）
-python 12_qpinn_ablation.py --quick  # 構成を減らした短縮版
-
-python 13_qpinn_kirsch.py --verify-only        # 解析解（Kirsch）の検証だけ
-python 13_qpinn_kirsch.py --skip-qpinn         # 古典モデルだけ（数分）
-python 13_qpinn_kirsch.py                      # 全部（QPINN 込みで CPU 約30分）
-python 13_qpinn_kirsch.py --expressivity-sweep # QPINN の表現力スイープ
+python 25_qerc_ikeda_pde.py --N 8          # QERC-PINN on Kirsch with different reservoirs
+python 29_qerc_fair_scales.py --seeds 5    # fair comparison incl. Fourier PIELM / FS-PIELM
+python 30_qerc_tsv_single.py --N 8         # single TSV thermal stress
 ```
 
-必要: `torch`, `pennylane`
+The cylinder-wake scripts (`18`, `23`) need `cylinder_wake.mat` from
+[github.com/GeetRakala/QPINN](https://github.com/GeetRakala/QPINN); pass its path with `--data`.
 
-各ファイルは **そのまま実行可能** で、コメントで解説付きです。
+## References
 
-## 実行
+- M. Raissi, P. Perdikaris, G. E. Karniadakis, *J. Comput. Phys.* 378 (2019) 686–707.
+- G. Rakala, QPINN, [github.com/GeetRakala/QPINN](https://github.com/GeetRakala/QPINN).
+- A. Ikeda, A. Sakurai, K. Nemoto, M. Muramatsu, *Quantum Extreme Reservoir Computing for Phase Classification of Polymer Alloy Microstructures*, arXiv:2601.02150 (2026).
+- M. Schuld, R. Sweke, J. J. Meyer, *Phys. Rev. A* 103 (2021) 032430.
+- X. Xiong et al., *Frequency Shift Physics-Informed Extreme Learning Machine*, arXiv:2607.01694 (2026).
+- J. Hu, S. Jin, N. Liu, L. Zhang, *Quantum Random Feature Method for Solving PDEs*, arXiv:2510.07945 (2025).
 
-```bash
-python 01_qubit_basics.py
-python 02_quantum_gates.py
-# ...
-```
+## Author
 
-## ドキュメント
-
-- [docs/research_landscape_2025.md](docs/research_landscape_2025.md) — 量子コンピューティング研究の最新動向
-- [docs/project_ideas.md](docs/project_ideas.md) — プロジェクト案とロードマップ
-- [docs/qpinn_rocket_research_plan.md](docs/qpinn_rocket_research_plan.md) — QPINN × 固体変形（ロケット構造）研究構想（2026/10–2027/5）
-- [docs/qpinn_plan_review.md](docs/qpinn_plan_review.md) — 上記計画のレビュー・文献確認・ベンチ #1 の実測結果
-- [docs/qpinn_ablation_results.md](docs/qpinn_ablation_results.md) — 回路構成のアブレーション結果（表現力 vs 最適化可能性）
-- [docs/qpinn_kirsch_results.md](docs/qpinn_kirsch_results.md) — ベンチ #2（円孔付き板）の結果。2D では表現力が律速に入れ替わる
-
-## 参考リソース
-
-- [Qiskit Textbook](https://learning.quantum.ibm.com/)
-- [IBM Quantum](https://quantum.ibm.com/)
-- [Quantum Computing: An Applied Approach (Hidary)](https://link.springer.com/book/10.1007/978-3-030-83274-2)
-
-## License
-
-MIT
+Keisuke Nishioka — Keio University / Leibniz Universität Hannover
