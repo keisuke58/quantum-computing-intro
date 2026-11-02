@@ -1,6 +1,6 @@
 # 研究室サーバー（fifa / copaam）で実験を回す手順
 
-**方針（2026-11-02）: 重い計算は基本 IKM クラスタの GPU で回す（copaam から qsub）．** 新しい実験はジョブとして `scripts/server_run.sh` に追加する．
+**方針（2026-11-02）: 重い計算は基本 IKM クラスタの GPU で回す（copaam から qsub）．** 回すジョブの一覧と状態は `docs/cluster_jobs.md`． 新しい実験はジョブとして `scripts/server_run.sh` に追加する．
 
 ## まずはこれ：copaam から計算ノードの GPU に投げる（最短手順）
 
