@@ -7,12 +7,13 @@
 #     array    TSV 周期配列のみ（5 シード）
 #     shots    ショットノイズ対策のみ（N=10，強形式 vs エネルギー形，5 シード）
 #     bigN     量子ビット数を増やした TSV 単体（N=10, 12，3 シード）
+#     axisym   軸対称 (r, z) の TSV 1 本（MORE-Stress の寸法，上下固定 / 上面自由，5 シード）
 #   接続が切れても止まらないよう，nohup で裏で動かす．進み具合: tail -f logs/<ジョブ名>.log
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source .venv/bin/activate
 mkdir -p results/server logs
-JOB=${1:?ジョブ名を指定してください（seeds5 / tsv / array / shots / bigN）}
+JOB=${1:?ジョブ名を指定してください（seeds5 / tsv / array / shots / bigN / axisym）}
 export XLA_PYTHON_CLIENT_PREALLOCATE=false     # GPU メモリを一度に確保しない
 
 run_job() {
@@ -26,6 +27,8 @@ run_job() {
       python 39_shot_mitigation.py --Ns 10 --methods strong,ritz --seeds 5 --out results/server/shot_mitigation_5s.json ;;
     seeds5)
       run_job tsv; run_job array; run_job shots ;;
+    axisym)
+      python 42_tsv_axisym.py --seeds 5 --h 0.02 --out results/server/tsv_axisym.json ;;
     bigN)
       for N in 10 12; do
         python 30_qerc_tsv_single.py --N $N --seeds 3 --out results/server/tsv_single_N${N}.json
