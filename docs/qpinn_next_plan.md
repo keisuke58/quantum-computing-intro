@@ -445,3 +445,20 @@ TSV 周期配列・CFRP 単位セル・エネルギー形のノイズ対策は 1
 - 発表の主張（公平な比較 + リザバーの役割の理論 + ノイズ耐性）でよいか
 - 応用は TSV（半導体）中心でよいか
 - 池田さんとの連携の進め方
+
+## おすすめ論文（2026-11-02 メモ）
+
+QPINN の軸:
+1. Kyriienko, Paine, Elfving (2021) "Solving nonlinear differential equations with differentiable quantum circuits", Phys. Rev. A 103, 052416 — 量子回路で微分方程式を解く（DQC）の出発点．序論で必ず引用
+2. Sedykh et al. (2024) "Hybrid quantum physics-informed neural networks for simulating computational fluid dynamics in complex shapes", Mach. Learn.: Sci. Technol. 5, 025045 — ハイブリッド QPINN の代表例．古典対照の公平さに注目して読む
+3. Markidis (2022) "On physics-informed neural networks for quantum computers", Front. Appl. Math. Stat. 8, 1036711 — QPINN の難しさ（最適化）の整理
+
+理論・立場:
+- Schuld, Sweke, Meyer (2021) "Effect of data encoding on the expressive power of variational quantum machine learning models", Phys. Rev. A 103, 032430 — 出力は入力のフーリエ級数．第 4 節の根拠
+- Schuld & Killoran (2022) "Is quantum advantage the right goal for quantum machine learning?", PRX Quantum 3, 030101 — 公平な比較の位置づけ
+
+近い手法（差別化）: QRFM（arXiv:2510.07945）
+
+QAOA（引き継ぎ用）:
+- Farhi, Goldstone, Gutmann (2014) "A Quantum Approximate Optimization Algorithm", arXiv:1411.4028
+- Cerezo et al. (2021) "Variational quantum algorithms", Nat. Rev. Phys. 3, 625 — 不毛な台地・最適化の背景
