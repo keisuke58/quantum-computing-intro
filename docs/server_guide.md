@@ -1,5 +1,7 @@
 # 研究室サーバー（fifa / copaam）で実験を回す手順
 
+**方針（2026-11-02）: 重い計算は基本 copaam の GPU で回す．** 新しい実験はジョブとして `scripts/server_run.sh` に追加する．
+
 ## まずはこれ：copaam の GPU で回す（最短手順）
 
 ```bash

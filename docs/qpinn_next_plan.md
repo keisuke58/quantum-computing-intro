@@ -462,3 +462,7 @@ QPINN の軸:
 QAOA（引き継ぎ用）:
 - Farhi, Goldstone, Gutmann (2014) "A Quantum Approximate Optimization Algorithm", arXiv:1411.4028
 - Cerezo et al. (2021) "Variational quantum algorithms", Nat. Rev. Phys. 3, 625 — 不毛な台地・最適化の背景
+
+## 計算環境（2026-11-02）
+
+重い計算は基本 copaam の GPU で回す（手順は `docs/server_guide.md`）．新しい実験は `scripts/server_run.sh` にジョブとして追加し，結果は `results/server/` に push してもらう．
