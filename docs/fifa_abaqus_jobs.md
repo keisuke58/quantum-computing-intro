@@ -9,7 +9,9 @@ TSV の熱応力の参照解（FEM）を Abaqus で作ります．目的は 2 �
 単位は µm と MPa．材料は Cu（E = 110 GPa，ν = 0.35，α = 17 ppm/K）と Si（E = 130 GPa，ν = 0.28，α = 2.6 ppm/K）．
 ライナー（絶縁膜）は省略しています（PINN 側と条件をそろえるため）．
 
-**注意**：スクリプトは Claude 側では Abaqus が無いため動作確認していません．エラーが出たら，ログの最後の 20 行ほどをチャットに貼ってください．
+**注意**：ジョブ 1 は fifa で動作確認済み（2026-11-03）．`from caeModules import *` と `F-Output-1` の作成はリポジトリ版に反映済みなので，修正版のコピーは不要．エラーが出たら，ログの最後の 20 行ほどをチャットに貼ってください．
+
+**検証**：ジョブ 1 のビア中心（中央面）の応力 σ_rr = σ_θθ = 642 MPa，σ_zz = 917 MPa は，平面ひずみの解析解（`43_check_axisym_fe.py` と同じ式）と一致．
 
 ## 毎回の手順
 
@@ -17,7 +19,7 @@ TSV の熱応力の参照解（FEM）を Abaqus で作ります．目的は 2 �
 cd ~/quantum-computing-intro        # fifa 上のクローン（無ければ git clone して git checkout ccr-e0b1f2e9-h1hyaz）
 git pull
 mkdir -p ~/abaqus_tsv && cd ~/abaqus_tsv     # Abaqus の作業ファイル（.odb など）はリポジトリの外に出す
-abaqus cae noGUI=$HOME/quantum-computing-intro/abaqus/tsv_abaqus.py -- mode=<mode> bc=<bc> size=<size> ncpu=<n>
+abaqus cae noGUI=$HOME/quantum-computing-intro/abaqus/tsv_abaqus.py -- mode=<mode> -- bc=<bc> -- size=<size> -- ncpu=<n>   # 引数ごとに -- を付ける
 abaqus python $HOME/quantum-computing-intro/abaqus/extract_odb.py tsv_<mode>_<bc>.odb
 ```
 

@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 # Abaqus/CAE script: TSV thermal stress reference (MORE-Stress dimensions).
 # Run on fifa (no GUI):
-#   abaqus cae noGUI=abaqus/tsv_abaqus.py -- mode=axisym bc=clamped size=0.1 ncpu=4
-#   abaqus cae noGUI=abaqus/tsv_abaqus.py -- mode=3d     bc=free    size=0.4 ncpu=8
+#   abaqus cae noGUI=abaqus/tsv_abaqus.py -- mode=axisym -- bc=clamped -- size=0.05 -- ncpu=4
+#   abaqus cae noGUI=abaqus/tsv_abaqus.py -- mode=3d -- bc=free -- size=0.4 -- ncpu=8
+#   (put "--" before every argument; this is what worked on fifa)
 # Units: um, MPa (force uN). Cu via radius 2.5 um, height 50 um, pitch 15 um, dT = -250 K (275 C -> 25 C).
 # mode=axisym : one via in a cylinder cell of the same area (R = 15/sqrt(pi)); same model as 42_tsv_axisym.py
 # mode=3d     : quarter of the square unit cell (x, y in [0, 7.5]); same as MORE-Stress unit block
@@ -11,6 +12,7 @@
 # The liner (0.5 um dielectric) is omitted to match our PINN models.
 from abaqus import *
 from abaqusConstants import *
+from caeModules import *      # needed in noGUI mode, otherwise the model has no fieldOutputRequests
 import regionToolset
 import mesh
 import sys
@@ -90,7 +92,10 @@ p.seedPart(size=SIZE, deviationFactor=0.1, minSizeFactor=0.1)
 p.generateMesh()
 
 m.StaticStep(name="cool", previous="Initial")
-m.fieldOutputRequests["F-Output-1"].setValues(variables=("S", "U"))
+if "F-Output-1" in m.fieldOutputRequests.keys():
+    m.fieldOutputRequests["F-Output-1"].setValues(variables=("S", "U"))
+else:
+    m.FieldOutputRequest(name="F-Output-1", createStepName="cool", variables=("S", "U"))
 
 if MODE == "axisym":
     allreg = regionToolset.Region(faces=inst.faces)
