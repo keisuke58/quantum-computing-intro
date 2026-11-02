@@ -28,7 +28,7 @@ push できないときは `results/server/*.json` をチャットにアップ�
 
 | 順 | ジョブ名 | 内容 | 出力 | 目安 | 状態 |
 |---|---|---|---|---|---|
-| 1 | `axisym` | 軸対称 (r, z) の TSV 1 本．MORE-Stress の寸法（直径 5 µm，高さ 50 µm，ピッチ 15 µm），上下固定 / 上面自由の 2 通り，5 シード | `results/server/tsv_axisym.json` | 数時間 | 未実行 |
+| 1 | `axisym` | 軸対称 (r, z) の TSV 1 本．MORE-Stress の寸法（直径 5 µm，高さ 50 µm，ピッチ 15 µm），上下固定 / 上面自由の 2 通り，5 シード | `results/server/tsv_axisym.json` | 約 50 分（vancouver01） | 完了（2026-11-03） |
 | 2 | `tsv3d_plane` | 3D 単位セルの TSV（`44_tsv_3d.py`）．参照は中央面の平面ひずみ近似（上下固定のみ）．N = 8, 10，3 シード | `results/server/tsv_3d_plane_N8.json`，`_N10.json` | 数時間（N = 10 はメモリ 10 GB 程度） | 未実行 |
 | 3 | `tsv3d` | 3D 単位セルの TSV．参照は fifa の Abaqus．上下固定 `qsub -v JOB=tsv3d scripts/pbs_job.sh`，上面自由 `qsub -v JOB=tsv3d,BC3D=free scripts/pbs_job.sh`（Abaqus の結果はどちらも push 済み） | `results/server/tsv_3d_abaqus_clamped_N8.json`，`_N10.json`（free も同様） | 数時間 | 未実行 |
 | 4 | `bigN` | 量子ビット数を増やした TSV 単体（N = 10, 12，3 シード） | `results/server/tsv_single_N10.json`，`_N12.json` | 未計測（N = 12 は重い） | 完了（2026-11-03） |
