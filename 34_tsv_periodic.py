@@ -63,7 +63,8 @@ def mesh_quarter(L, h):
     tri = Delaunay(pts).simplices
     cen = pts[tri].mean(1)
     phase = (np.hypot(cen[:, 0], cen[:, 1]) > A_R).astype(int)      # 0: Cu, 1: Si
-    area = 0.5 * np.abs(np.cross(pts[tri[:, 1]] - pts[tri[:, 0]], pts[tri[:, 2]] - pts[tri[:, 0]]))
+    e1, e2 = pts[tri[:, 1]] - pts[tri[:, 0]], pts[tri[:, 2]] - pts[tri[:, 0]]
+    area = 0.5 * np.abs(e1[:, 0] * e2[:, 1] - e1[:, 1] * e2[:, 0])   # 2D cross (np.cross on 2-vectors fails in numpy >= 2.5)
     keep = area > 1e-14
     return pts, tri[keep], phase[keep]
 
