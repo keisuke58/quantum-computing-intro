@@ -37,6 +37,7 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | 7 | `edge_axisym` | 軸対称の QERC-Haar と MLP2-RF を ×0.25, ×0.5 | `results/server/tsv_axisym_low.json` | 約 30 分 | 完了（2026-11-03） |
 | 8 | `edge_3d` | 3D（Abaqus 参照）の QERC-Haar・MLP2-RF・tanh-RF を ×0.25, ×0.5, ×1．上下固定 `qsub -v JOB=edge_3d scripts/pbs_job.sh`，上面自由 `qsub -v JOB=edge_3d,BC3D=free scripts/pbs_job.sh` | `results/server/tsv_3d_abaqus_<bc>_N8_low.json`，`_N10_low.json` | 数時間 | 完了（2026-11-03） |
 | 9 | `edge_plane` | 3D（平面ひずみ参照）の QERC-Haar と MLP2-RF を ×0.25, ×0.5 | `results/server/tsv_3d_plane_N8_low.json`，`_N10_low.json` | 数時間 | 完了（2026-11-03） |
+| 10 | `edge_periodic` | 周期配列 L = 3 の Fourier を ×32, ×64, ×128（5 シードとも最良が上限 ×16 の端だった）．`qsub -v JOB=edge_periodic scripts/pbs_job.sh` | `results/server/tsv_periodic_L3_fourier_wide.json` | 約 30 分 | 未実行 |
 
 （`seeds5` / `tsv` / `array` は Claude 側の環境で回したので不要）
 
