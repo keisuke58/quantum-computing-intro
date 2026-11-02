@@ -1,5 +1,33 @@
 # 研究室サーバー（fifa / copaam）で実験を回す手順
 
+## まずはこれ：copaam の GPU で回す（最短手順）
+
+```bash
+# 1. GPU の確認（空いている GPU の番号と，CUDA Version を見る）
+nvidia-smi
+
+# 2. 取得とセットアップ（初回のみ）
+cd ~
+git clone https://github.com/keisuke58/quantum-computing-intro.git
+cd quantum-computing-intro
+git checkout ccr-e0b1f2e9-h1hyaz
+bash scripts/server_setup.sh gpu      # 最後に devices: [CudaDevice(id=0)] と出れば OK
+
+# 3. 使う GPU を 1 枚に決めて実行（例: 0 番．他の人が使っていない番号にする）
+export CUDA_VISIBLE_DEVICES=0
+bash scripts/server_run.sh bigN       # 量子ビット数 N = 10, 12 の TSV 単体
+
+# 4. 進み具合（Ctrl+C で表示だけやめる．実験は止まらない）
+tail -f logs/bigN.log
+```
+
+- `nvidia-smi` の右上の **CUDA Version が 12.x 以上**なら上のままで動きます．11.x 以下なら CPU 版（`gpu` を付けない）にしてください
+- `devices:` に `CpuDevice` と出たら GPU が使えていません（CPU のままでも結果は同じ．遅いだけ）
+- 他の人の計算とぶつからないよう，`nvidia-smi` で使用率・メモリが空いている GPU を選ぶ
+- 終わったら結果（`results/server/*.json`）を push するか，チャットにアップロード
+
+以下は詳しい説明です．
+
 QPINN / QERC-PINN の実験を，研究室のサーバーで回すための指示書です．
 コマンドは上から順にコピーして貼り付ければ動きます．
 
