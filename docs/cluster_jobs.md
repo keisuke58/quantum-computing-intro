@@ -33,6 +33,10 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | 3 | `tsv3d` | 3D 単位セルの TSV．参照は fifa の Abaqus．上下固定 `qsub -v JOB=tsv3d scripts/pbs_job.sh`，上面自由 `qsub -v JOB=tsv3d,BC3D=free scripts/pbs_job.sh`（Abaqus の結果はどちらも push 済み） | `results/server/tsv_3d_abaqus_clamped_N8.json`，`_N10.json`（free も同様） | 約 1 時間 | 完了（2026-11-03） |
 | 4 | `bigN` | 量子ビット数を増やした TSV 単体（N = 10, 12，3 シード） | `results/server/tsv_single_N10.json`，`_N12.json` | 未計測（N = 12 は重い） | 完了（2026-11-03） |
 | 5 | `shots` | ショットノイズ対策（`39_shot_mitigation.py`）．N = 10，強形式 vs エネルギー形，5 シード．**先に `.venv/bin/python -m pip install pennylane` と `.venv/bin/python -m pip install torch --index-url https://download.pytorch.org/whl/cpu` を 1 回だけ実行**（copaam で実行してよい．import に必要） | `results/server/shot_mitigation_5s.json` | 約 30 分 | 完了（2026-11-03） |
+| 6 | `edge_single` | **倍率の範囲の端で止まっていたものの回し直し**（以下 6〜9 共通．最良の倍率が探索範囲の端だった）．TSV 単体 N = 10 の Fourier を ×16〜×128，テンソル積射影を ×0.5, ×1 | `results/server/tsv_single_N10_fourier_wide.json`，`tsv_controls_rp_low.json` | 数時間（テンソル積射影が重い） | 未実行 |
+| 7 | `edge_axisym` | 軸対称の QERC-Haar と MLP2-RF を ×0.25, ×0.5 | `results/server/tsv_axisym_low.json` | 約 30 分 | 未実行 |
+| 8 | `edge_3d` | 3D（Abaqus 参照）の QERC-Haar・MLP2-RF・tanh-RF を ×0.25, ×0.5, ×1．上下固定 `qsub -v JOB=edge_3d scripts/pbs_job.sh`，上面自由 `qsub -v JOB=edge_3d,BC3D=free scripts/pbs_job.sh` | `results/server/tsv_3d_abaqus_<bc>_N8_low.json`，`_N10_low.json` | 数時間 | 未実行 |
+| 9 | `edge_plane` | 3D（平面ひずみ参照）の QERC-Haar と MLP2-RF を ×0.25, ×0.5 | `results/server/tsv_3d_plane_N8_low.json`，`_N10_low.json` | 数時間 | 未実行 |
 
 （`seeds5` / `tsv` / `array` は Claude 側の環境で回したので不要）
 

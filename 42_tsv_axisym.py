@@ -261,6 +261,8 @@ def main():
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--h", type=float, default=0.02)
     ap.add_argument("--out", default="results/tsv_axisym.json")
+    ap.add_argument("--models", default=None, help="comma list (default: all)")
+    ap.add_argument("--scales", default=None, help="comma list overriding the scale grid of the selected models")
     a = ap.parse_args()
     m = 2 ** a.N; rows = []
     grid = {
@@ -269,6 +271,11 @@ def main():
         "tanh-RF": ([2.0, 4.0, 8.0], scaled(lambda sd, s: T.make_tanh(m, sd, s))),
         "Fourier": ([4.0, 8.0, 16.0, 24.0], scaled(lambda sd, s: T.make_fourier(m, sd, s))),
     }
+    if a.models:
+        grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
+    if a.scales:
+        sc = [float(x) for x in a.scales.split(",")]
+        grid = {k: (sc,) + tuple(v[1:]) for k, v in grid.items()}
     for bc in a.bc.split(","):
         t0 = time.time(); ref = fe_solve(bc, a.h); ref2 = fe_solve(bc, 2 * a.h)
         from scipy.interpolate import LinearNDInterpolator

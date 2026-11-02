@@ -85,12 +85,19 @@ def main():
     ap.add_argument("--N", type=int, default=8)
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--out", default="results/tsv_classical_controls.json")
+    ap.add_argument("--models", default=None, help="comma list (default: all)")
+    ap.add_argument("--scales", default=None, help="comma list overriding the scale grid of the selected models")
     a = ap.parse_args()
     grid = {
         "QERC-Haar": ([1.0, 2.0, 4.0], lambda sd, s: T.make_qerc(a.N, sd, s)),
         "tensor-RP": ([2.0, 4.0], lambda sd, s: make_tensor_rp(a.N, sd, s)),
         "MLP2-RF": ([1.0, 2.0, 4.0, 8.0], lambda sd, s: make_mlp2(a.N, sd, s)),
     }
+    if a.models:
+        grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
+    if a.scales:
+        sc = [float(x) for x in a.scales.split(",")]
+        grid = {k: (sc,) + tuple(v[1:]) for k, v in grid.items()}
     rows = []
     for sd in range(a.seeds):
         pts = T.points(2000, 6000, 400, 400, 10 + sd)

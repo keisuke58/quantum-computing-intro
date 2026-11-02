@@ -262,6 +262,7 @@ def main():
     ap.add_argument("--N", type=int, default=8)
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--models", default="QERC-Haar,MLP2-RF,tanh-RF,Fourier")
+    ap.add_argument("--scales", default=None, help="comma list overriding the scale grid of the selected models")
     ap.add_argument("--n_cu", type=int, default=4000)
     ap.add_argument("--n_si", type=int, default=12000)
     ap.add_argument("--out", default="results/tsv_3d.json")
@@ -272,6 +273,9 @@ def main():
             "tanh-RF": ([2.0, 4.0, 8.0], lambda sd, s: make_tanh(m, sd, s)),
             "Fourier": ([2.0, 4.0, 8.0, 16.0], lambda sd, s: make_fourier(m, sd, s))}
     grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
+    if a.scales:
+        sc = [float(x) for x in a.scales.split(",")]
+        grid = {k: (sc, ctor) for k, (_, ctor) in grid.items()}
     rows = []
     for bc in a.bc.split(","):
         if a.ref == "plane" and bc != "clamped":

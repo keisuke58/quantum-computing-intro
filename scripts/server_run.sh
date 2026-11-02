@@ -9,6 +9,7 @@
 #     bigN     量子ビット数を増やした TSV 単体（N=10, 12，3 シード）
 #     tsv3d_plane  3D unit cell TSV vs approx. plane-strain reference (N=8,10)
 #     tsv3d    3D unit cell TSV vs Abaqus reference (needs results/abaqus from fifa)
+#     edge_single / edge_axisym / edge_3d / edge_plane  re-runs with wider scale grids (best scale was at the grid edge)
 #     axisym   軸対称 (r, z) の TSV 1 本（MORE-Stress の寸法，上下固定 / 上面自由，5 シード）
 #   接続が切れても止まらないよう，nohup で裏で動かす．進み具合: tail -f logs/<ジョブ名>.log
 set -euo pipefail
@@ -38,6 +39,19 @@ run_job() {
     tsv3d)
       for N in 8 10; do
         python 44_tsv_3d.py --ref abaqus --bc ${BC3D:-clamped} --N $N --seeds 3 --out results/server/tsv_3d_abaqus_${BC3D:-clamped}_N${N}.json
+      done ;;
+    edge_single)
+      python 30_qerc_tsv_single.py --N 10 --models Fourier --scales 16,32,64,128 --seeds 3 --out results/server/tsv_single_N10_fourier_wide.json
+      python 31_tsv_classical_controls.py --models tensor-RP --scales 0.5,1 --seeds 5 --out results/server/tsv_controls_rp_low.json ;;
+    edge_axisym)
+      python 42_tsv_axisym.py --models QERC-Haar,MLP2-RF --scales 0.25,0.5 --seeds 5 --h 0.02 --out results/server/tsv_axisym_low.json ;;
+    edge_3d)
+      for N in 8 10; do
+        python 44_tsv_3d.py --ref abaqus --bc ${BC3D:-clamped} --N $N --models QERC-Haar,MLP2-RF,tanh-RF --scales 0.25,0.5,1 --seeds 3 --out results/server/tsv_3d_abaqus_${BC3D:-clamped}_N${N}_low.json
+      done ;;
+    edge_plane)
+      for N in 8 10; do
+        python 44_tsv_3d.py --ref plane --bc clamped --N $N --models QERC-Haar,MLP2-RF --scales 0.25,0.5 --seeds 3 --out results/server/tsv_3d_plane_N${N}_low.json
       done ;;
     bigN)
       for N in 10 12; do
