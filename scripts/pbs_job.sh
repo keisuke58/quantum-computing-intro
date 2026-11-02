@@ -12,7 +12,7 @@
 
 cd "${PBS_O_WORKDIR:?submit with qsub}"
 mkdir -p logs results/server
-exec > "logs/pbs_${JOB:?set JOB with -v JOB=...}.log" 2>&1
+exec > "logs/pbs_${JOB:?set JOB with -v JOB=...}${BC3D:+_$BC3D}.log" 2>&1   # BC3D in the name: tsv3d clamped/free must not share a log
 
 unset LD_LIBRARY_PATH                         # PBS sets the system CUDA libs, which clash with the pip CUDA wheels
 export XLA_PYTHON_CLIENT_PREALLOCATE=false
