@@ -1,5 +1,5 @@
 #!/bin/bash
-# Job script for the IKM cluster (submit with qsub from copaam).
+# Job script for the Keio cluster (submit with qsub from copaam).
 # NOTE: Torque rejects job scripts with non-ASCII bytes ("file must be an ascii script"), so keep this file ASCII only.
 #   Usage (on copaam, from the repo root):
 #     qsub -v JOB=bigN scripts/pbs_job.sh

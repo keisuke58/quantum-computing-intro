@@ -1,11 +1,11 @@
 # 研究室サーバー（fifa / copaam）で実験を回す手順
 
-**方針（2026-11-02）: 重い計算は基本 IKM クラスタの GPU で回す（copaam から qsub）．** 回すジョブの一覧と状態は `docs/cluster_jobs.md`． 新しい実験はジョブとして `scripts/server_run.sh` に追加する．
+**方針（2026-11-02）: 重い計算は基本 慶應のクラスタの GPU で回す（copaam から qsub）．** 回すジョブの一覧と状態は `docs/cluster_jobs.md`． 新しい実験はジョブとして `scripts/server_run.sh` に追加する．
 
 ## まずはこれ：copaam から計算ノードの GPU に投げる（最短手順）
 
 **copaam はログインノード（GPU なし，計算禁止）．計算は必ず `qsub` で計算ノードに投げる．**
-`scripts/server_run.sh`（nohup）は copaam では使わない．詳細は `CLAUDE.md` の IKM クラスタの節．
+`scripts/server_run.sh`（nohup）は copaam では使わない．詳細は `CLAUDE.md` の 慶應のクラスタの節．
 
 ```bash
 # 1. 取得とセットアップ（初回のみ．copaam で実行してよい．最後に CpuDevice と CUDA のエラーが出るが正常）

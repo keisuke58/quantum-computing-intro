@@ -1,6 +1,6 @@
 # CLAUDE.md（quantum-computing-intro）
 
-## IKM クラスタ（copaam）で実験を回すとき
+## 慶應のクラスタ（copaam）で実験を回すとき
 
 - **copaam はログインノード**（GPU なし、計算は禁止）。編集・投入・確認だけにする。
 - **`scripts/server_run.sh`（nohup で裏で動かす）は copaam では使わない**。GPU は他の利用者と共有しているので、
