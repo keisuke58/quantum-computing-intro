@@ -593,3 +593,17 @@ KOZ の目安 = Si 側で von Mises が 300 MPa を下回るまでの界面か�
 | ライナー（SiO2 0.5 µm，d = 5，p = 15） | Si 側の界面の von Mises が約 4 割下がる（上面自由・表面直下 640 → 378 MPa），KOZ も 1.9 → 0.9 µm．**効果が大きいので Abaqus で確認する（fifa のジョブ 5）** |
 
 注意: 円柱セルは正方配列の近似．p = 10 のように干渉が強い場合は 3D で確認が要る．300 MPa は仮の閾値（文献の KOZ は移動度の変化 5〜10% で定義，`docs/tsv_literature.md`）．
+
+## 5 シードで確定した数値（2026-11-03，Claude 側の環境）
+
+rel L2(u) の幾何平均（シードごとに u 最良の倍率），3 シード時の結論はすべて変わらない．
+
+| 問題 | QERC-Haar | テンソル積射影 | MLP2-RF | tanh-RF | Fourier |
+|---|---|---|---|---|---|
+| TSV 単体（N = 8） | 4.6e-3 | 4.4e-3 | 1.2e-2 | 4.8e-2 | 4.3e-2 |
+| TSV 周期配列 L = 3 | 1.1e-4 | — | 8.0e-5 | 3.7e-4 | **1.4e-5** |
+| TSV 周期配列 L = 4 | 6.0e-5 | — | 6.8e-5 | 1.2e-3 | **2.5e-5** |
+| TSV 周期配列 L = 6 | 1.8e-4 | — | 2.0e-4 | 4.2e-3 | 3.4e-4 |
+
+結果: `results/tsv_single_5s.json`，`results/tsv_controls_5s.json`，`results/tsv_periodic_5s.json`．
+ショットノイズの 5 シード（N = 10）は copaam に回した（`docs/cluster_jobs.md` のジョブ 5）．
