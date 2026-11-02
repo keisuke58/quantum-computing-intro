@@ -125,7 +125,6 @@ best scale, and we widen the sweep until the best scale lies inside it. This tun
 classical baseline looked equal to the quantum model with two seeds, while the tuned one was $20\times$ better;
 and at $N=12$ the cosine features improved from $3.2\times10^{-4}$ to $8.3\times10^{-6}$ once the sweep was
 extended beyond its original upper edge.
-% PROVISIONAL: some 3D / axisymmetric runs still had the best QERC/MLP2 scale at the lower edge; re-runs pending.
 
 The quantum features are simulated exactly as state vectors in JAX, which provides the first and second
 derivatives with respect to the coordinates by automatic differentiation. We checked the implementation against
@@ -206,10 +205,9 @@ quantum result ($4.4\times10^{-3}$, with matching per-seed and per-scale trends;
 random two-layer network reaches $1.2\times10^{-2}$.
 The advantage over one-layer features therefore comes from the product structure of $\mathcal F_\rho$, not from
 anything specific to quantum measurement.
-The advantage also disappears with more features: at $N=10$ QERC gives $1.5\times10^{-4}$ (tanh $2.1\times10^{-3}$),
+The advantage also disappears with more features: at $N=10$ QERC gives $1.5\times10^{-4}$ (tanh $2.1\times10^{-3}$, Fourier $1.5\times10^{-3}$),
 and at $N=12$ the cosine features with a properly extended scale sweep give $8.3\times10^{-6}$, about $7\times$
 better than QERC ($5.6\times10^{-5}$) and tanh ($5.7\times10^{-5}$).
-% PROVISIONAL: N = 10 Fourier was also at the upper edge of its sweep; re-run pending.
 
 \begin{figure}[t]
   \centering\includegraphics[width=0.8\linewidth]{tsv_controls.pdf}
@@ -238,7 +236,6 @@ represent. In the axisymmetric cell ($N=8$, 5 seeds; Table~\ref{tab:axisym}) the
 and the free-top case; QERC is on par with the random two-layer network. The 3D cell with the Abaqus reference shows
 the same ordering at $N=10$ (clamped: QERC $2.9\times10^{-2}$ vs Fourier $1.3\times10^{-2}$ in $\bm u$; free top:
 $8.0\times10^{-3}$ vs $4.4\times10^{-3}$).
-% PROVISIONAL: 3D and axisymmetric QERC/MLP2 best scales were at the lower edge (x1); re-runs with x0.25, x0.5 pending.
 
 \begin{table}[t]
   \centering
