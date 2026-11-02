@@ -6,4 +6,3 @@ dist/
 build/
 .ipynb_checkpoints/
 logs/
-.venv/
