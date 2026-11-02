@@ -16,6 +16,7 @@
   cd <repo> && .venv/bin/python 30_qerc_tsv_single.py --N 10 --seeds 3 --out results/server/tsv_single_N10.json
   ```
 - 投入前に `pbsnodes -a` / `qstat -a` で空きを見る。同時は 10 本まで。
+- **ジョブスクリプトは ASCII だけで書く**。日本語のコメントが 1 文字でもあると Torque が `qsub:  file must be an ascii script` で受け付けない（`scripts/pbs_job.sh` がそうだった）。
 - `bash scripts/server_setup.sh gpu` は copaam で実行してよい（`.venv` を作るだけ）。copaam には GPU が無いので、
   最後の確認は `CpuDevice` と CUDA のエラーを出すが正常。GPU の確認は計算ノードで行う。
 - 動作確認済み（2026-11-03）：`jax[cuda12]` = JAX 0.12.0.1 が vancouver01（RTX 4090、ドライバ 550.90.07、CUDA 12.4）で
