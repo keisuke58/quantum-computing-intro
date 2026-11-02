@@ -1,25 +1,26 @@
 #!/bin/bash
-# IKM クラスタ（copaam から qsub で投げる）用のジョブスクリプト．
-#   使い方（copaam で）:
+# Job script for the IKM cluster (submit with qsub from copaam).
+# NOTE: Torque rejects job scripts with non-ASCII bytes ("file must be an ascii script"), so keep this file ASCII only.
+#   Usage (on copaam, from the repo root):
 #     qsub -v JOB=bigN scripts/pbs_job.sh
-#     qsub -v JOB=seeds5 -l nodes=1:ppn=2:gpus=1:stuttgart01 scripts/pbs_job.sh   # ノードを変える場合
-#   JOB は scripts/server_run.sh と同じ名前（seeds5 / tsv / array / shots / bigN）．
-#   ログは logs/pbs_<JOB>.log．進み具合: qstat -a，tail -f logs/pbs_<JOB>.log
+#     qsub -v JOB=seeds5 -l nodes=1:ppn=2:gpus=1:stuttgart01 scripts/pbs_job.sh   # other node
+#   JOB uses the same names as scripts/server_run.sh (seeds5 / tsv / array / shots / bigN / axisym).
+#   Log: logs/pbs_<JOB>.log. Progress: qstat -a, tail -f logs/pbs_<JOB>.log
 #PBS -N qpinn
 #PBS -l nodes=1:ppn=2:gpus=1:vancouver01
 #PBS -j oe
 
-cd "${PBS_O_WORKDIR:?qsub から投げてください}"
+cd "${PBS_O_WORKDIR:?submit with qsub}"
 mkdir -p logs results/server
-exec > "logs/pbs_${JOB:?JOB を -v JOB=... で指定}.log" 2>&1
+exec > "logs/pbs_${JOB:?set JOB with -v JOB=...}.log" 2>&1
 
-unset LD_LIBRARY_PATH                         # PBS の CUDA ライブラリが pip の CUDA とぶつかるため
+unset LD_LIBRARY_PATH                         # PBS sets the system CUDA libs, which clash with the pip CUDA wheels
 export XLA_PYTHON_CLIENT_PREALLOCATE=false
 export CUDA_VISIBLE_DEVICES=$(grep -oE "gpu[0-9]+" "$PBS_GPUFILE" | head -1 | grep -oE "[0-9]+")
 source .venv/bin/activate
 python -c "import jax; print('devices:', jax.devices())"
 
-# server_run.sh のジョブ定義を読み込んで，その場で（nohup なしで）実行する
+# Load the job definitions from server_run.sh and run them here (no nohup)
 eval "$(sed -n '/^run_job() {/,/^}/p' scripts/server_run.sh)"
 run_job "$JOB"
-echo "=== 完了 ==="
+echo "=== done ==="
