@@ -10,3 +10,5 @@ logs/
 *.cae
 *.jnl
 *.rpy*
+# PBS default output files
+*.o[0-9]*
