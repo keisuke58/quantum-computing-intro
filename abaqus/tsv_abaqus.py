@@ -23,6 +23,7 @@ MODE = args.get("mode", "axisym")
 BC = args.get("bc", "clamped")
 SIZE = float(args.get("size", "0.1" if MODE == "axisym" else "0.4"))
 NCPU = int(args.get("ncpu", "4"))
+LINER = float(args.get("liner", "0"))   # SiO2 liner thickness [um], axisym only (0 = none)
 
 A = 2.5                    # via radius
 HH = 25.0                  # half height
@@ -31,11 +32,12 @@ RC = 15.0 / math.sqrt(math.pi)   # equal-area cylinder cell (axisym)
 T0, T1 = 275.0, 25.0
 CU = (110000.0, 0.35, 17.0e-6)   # E [MPa], nu, alpha [1/K]  (same as 30_qerc_tsv_single.py)
 SI = (130000.0, 0.28, 2.6e-6)
+OX = (70000.0, 0.16, 0.5e-6)     # SiO2 liner
 TOL = 1e-4
 
-name = "tsv_%s_%s" % (MODE, BC)
+name = "tsv_%s_%s" % (MODE, BC) + ("_liner%g" % LINER if LINER > 0 else "")
 m = mdb.Model(name=name)
-for key, (E, nu, al) in (("Cu", CU), ("Si", SI)):
+for key, (E, nu, al) in (("Cu", CU), ("Si", SI), ("SiO2", OX)):
     mat = m.Material(name=key)
     mat.Elastic(table=((E, nu),))
     mat.Expansion(table=((al,),))
@@ -53,7 +55,8 @@ if MODE == "axisym":
         p.BaseShell(sketch=s)
         return p
     pcu = rect_part("cu", 0.0, A)
-    psi = rect_part("si", A, RC)
+    psi = rect_part("si", A + LINER, RC)
+    pox = rect_part("ox", A, A + LINER) if LINER > 0 else None
 else:
     s = m.ConstrainedSketch(name="si", sheetSize=100.0)
     s.rectangle(point1=(0.0, 0.0), point2=(P2, P2))
@@ -68,7 +71,11 @@ else:
 
 asm.Instance(name="si", part=psi, dependent=ON)
 asm.Instance(name="cu", part=pcu, dependent=ON)
-asm.InstanceFromBooleanMerge(name="tsv", instances=(asm.instances["si"], asm.instances["cu"]),
+parts = [asm.instances["si"], asm.instances["cu"]]
+if MODE == "axisym" and LINER > 0:
+    asm.Instance(name="ox", part=pox, dependent=ON)
+    parts.append(asm.instances["ox"])
+asm.InstanceFromBooleanMerge(name="tsv", instances=tuple(parts),
                              keepIntersections=ON, originalInstances=DELETE, domain=GEOMETRY)
 p = m.parts["tsv"]
 inst = asm.instances["tsv-1"]
@@ -76,9 +83,12 @@ inst = asm.instances["tsv-1"]
 # sections: pick the region by a point inside it
 if MODE == "axisym":
     cu_reg = p.faces.findAt(((0.5 * A, 0.5 * HH, 0.0),))
-    si_reg = p.faces.findAt(((0.5 * (A + RC), 0.5 * HH, 0.0),))
+    si_reg = p.faces.findAt(((0.5 * (A + LINER + RC), 0.5 * HH, 0.0),))
     p.SectionAssignment(region=regionToolset.Region(faces=cu_reg), sectionName="Cu")
     p.SectionAssignment(region=regionToolset.Region(faces=si_reg), sectionName="Si")
+    if LINER > 0:
+        ox_reg = p.faces.findAt(((A + 0.5 * LINER, 0.5 * HH, 0.0),))
+        p.SectionAssignment(region=regionToolset.Region(faces=ox_reg), sectionName="SiO2")
     p.setMeshControls(regions=p.faces, elemShape=QUAD, technique=STRUCTURED)
     p.setElementType(regions=(p.faces,), elemTypes=(mesh.ElemType(elemCode=CAX8, elemLibrary=STANDARD),))
 else:
