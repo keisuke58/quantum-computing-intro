@@ -1,0 +1,110 @@
+[
+ {
+  "bc": "clamped",
+  "ref": "plane",
+  "model": "QERC-Haar",
+  "seed": 0,
+  "scale": 0.25,
+  "u": 0.05593538575299027,
+  "vm_mid": 0.014879921242762627
+ },
+ {
+  "bc": "clamped",
+  "ref": "plane",
+  "model": "QERC-Haar",
+  "seed": 0,
+  "scale": 0.5,
+  "u": 0.01568509050191868,
+  "vm_mid": 0.00507678804055395
+ },
+ {
+  "bc": "clamped",
+  "ref": "plane",
+  "model": "MLP2-RF",
+  "seed": 0,
+  "scale": 0.25,
+  "u": 0.07852350677117027,
+  "vm_mid": 0.018319547103214272
+ },
+ {
+  "bc": "clamped",
+  "ref": "plane",
+  "model": "MLP2-RF",
+  "seed": 0,
+  "scale": 0.5,
+  "u": 0.019402182239043737,
+  "vm_mid": 0.006835058996656793
+ },
+ {
+  "bc": "clamped",
+  "ref": "plane",
+  "model": "QERC-Haar",
+  "seed": 1,
+  "scale": 0.25,
+  "u": 0.06024855742630236,
+  "vm_mid": 0.01511268178405833
+ },
+ {
+  "bc": "clamped",
+  "ref": "plane",
+  "model": "QERC-Haar",
+  "seed": 1,
+  "scale": 0.5,
+  "u": 0.025817099858314006,
+  "vm_mid": 0.007362200678151963
+ },
+ {
+  "bc": "clamped",
+  "ref": "plane",
+  "model": "MLP2-RF",
+  "seed": 1,
+  "scale": 0.25,
+  "u": 0.07156045380733453,
+  "vm_mid": 0.020220795889936374
+ },
+ {
+  "bc": "clamped",
+  "ref": "plane",
+  "model": "MLP2-RF",
+  "seed": 1,
+  "scale": 0.5,
+  "u": 0.02321881832085353,
+  "vm_mid": 0.00831881891413694
+ },
+ {
+  "bc": "clamped",
+  "ref": "plane",
+  "model": "QERC-Haar",
+  "seed": 2,
+  "scale": 0.25,
+  "u": 0.043822991815058304,
+  "vm_mid": 0.011770721235396074
+ },
+ {
+  "bc": "clamped",
+  "ref": "plane",
+  "model": "QERC-Haar",
+  "seed": 2,
+  "scale": 0.5,
+  "u": 0.012394594203814321,
+  "vm_mid": 0.0047501116522592444
+ },
+ {
+  "bc": "clamped",
+  "ref": "plane",
+  "model": "MLP2-RF",
+  "seed": 2,
+  "scale": 0.25,
+  "u": 0.08334318420660379,
+  "vm_mid": 0.02231992032133254
+ },
+ {
+  "bc": "clamped",
+  "ref": "plane",
+  "model": "MLP2-RF",
+  "seed": 2,
+  "scale": 0.5,
+  "u": 0.0341380612118781,
+  "vm_mid": 0.009205804330073671
+ }
+]
