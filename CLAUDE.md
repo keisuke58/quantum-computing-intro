@@ -28,3 +28,8 @@
 - 指示は必ず `docs/cluster_jobs.md`（指示書）に書く．チャットにコマンドを並べるだけにしない
 - 新しいジョブは `scripts/server_run.sh` の `run_job` に追加し，指示書の「ジョブ一覧」に 1 行足して状態を「未実行」にする
 - copaam 側は指示書を上から読み，回し終えたら状態を「完了（日付）」にして結果と一緒に push する
+
+## fifa の Abaqus に頼むとき
+
+- 指示は `docs/fifa_abaqus_jobs.md` に書く（ジョブ一覧に 1 行足して「未実行」にする）．スクリプトは `abaqus/` に置く
+- Abaqus の作業ファイル（.odb, .cae など）はリポジトリの外（`~/abaqus_tsv`）で作り，結果は gzip した CSV を `results/abaqus/` に push する

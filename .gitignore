@@ -6,3 +6,7 @@ dist/
 build/
 .ipynb_checkpoints/
 logs/
+*.odb
+*.cae
+*.jnl
+*.rpy*
