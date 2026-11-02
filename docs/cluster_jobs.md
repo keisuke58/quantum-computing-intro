@@ -13,7 +13,7 @@ qsub -v JOB=<ジョブ名> scripts/pbs_job.sh   # 投入（既定ノード vanco
 tail -f logs/pbs_<ジョブ名>.log             # 先頭に devices: [CudaDevice(...)] と出れば GPU で動いている
 ```
 
-終わったら（ログの最後に `=== 完了 ===`）:
+終わったら（ログの最後に `=== done ===`）:
 
 ```bash
 git add results/server
