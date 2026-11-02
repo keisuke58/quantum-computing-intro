@@ -10,6 +10,9 @@ PY=${PYTHON:-python3}
 source .venv/bin/activate
 python -m pip install -q --upgrade pip
 python -m pip install -q numpy scipy matplotlib
+# shots ジョブ（39 → 13 の import）に必要．torch は CPU 版で十分（import するだけ）
+python -m pip install -q pennylane
+python -m pip install -q torch --index-url https://download.pytorch.org/whl/cpu
 if [ "${1:-cpu}" = "gpu" ]; then
   python -m pip install -q "jax[cuda12]"
 else
