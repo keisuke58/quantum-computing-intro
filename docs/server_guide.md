@@ -1,32 +1,33 @@
 # 研究室サーバー（fifa / copaam）で実験を回す手順
 
-**方針（2026-11-02）: 重い計算は基本 copaam の GPU で回す．** 新しい実験はジョブとして `scripts/server_run.sh` に追加する．
+**方針（2026-11-02）: 重い計算は基本 IKM クラスタの GPU で回す（copaam から qsub）．** 新しい実験はジョブとして `scripts/server_run.sh` に追加する．
 
-## まずはこれ：copaam の GPU で回す（最短手順）
+## まずはこれ：copaam から計算ノードの GPU に投げる（最短手順）
+
+**copaam はログインノード（GPU なし，計算禁止）．計算は必ず `qsub` で計算ノードに投げる．**
+`scripts/server_run.sh`（nohup）は copaam では使わない．詳細は `CLAUDE.md` の IKM クラスタの節．
 
 ```bash
-# 1. GPU の確認（空いている GPU の番号と，CUDA Version を見る）
-nvidia-smi
-
-# 2. 取得とセットアップ（初回のみ）
+# 1. 取得とセットアップ（初回のみ．copaam で実行してよい．最後に CpuDevice と CUDA のエラーが出るが正常）
 cd ~
 git clone https://github.com/keisuke58/quantum-computing-intro.git
 cd quantum-computing-intro
 git checkout ccr-e0b1f2e9-h1hyaz
-bash scripts/server_setup.sh gpu      # 最後に devices: [CudaDevice(id=0)] と出れば OK
+bash scripts/server_setup.sh gpu
 
-# 3. 使う GPU を 1 枚に決めて実行（例: 0 番．他の人が使っていない番号にする）
-export CUDA_VISIBLE_DEVICES=0
-bash scripts/server_run.sh bigN       # 量子ビット数 N = 10, 12 の TSV 単体
+# 2. 空きを確認して投入（既定は vancouver01 = RTX 4090）
+pbsnodes -a | less
+qstat -a
+qsub -v JOB=bigN scripts/pbs_job.sh
+#   別ノード: qsub -v JOB=bigN -l nodes=1:ppn=2:gpus=1:stuttgart01 scripts/pbs_job.sh
 
-# 4. 進み具合（Ctrl+C で表示だけやめる．実験は止まらない）
-tail -f logs/bigN.log
+# 3. 進み具合
+qstat -a
+tail -f logs/pbs_bigN.log       # 先頭に devices: [CudaDevice(...)] と出れば GPU で動いている
 ```
 
-- `nvidia-smi` の右上の **CUDA Version が 12.x 以上**なら上のままで動きます．11.x 以下なら CPU 版（`gpu` を付けない）にしてください
-- `devices:` に `CpuDevice` と出たら GPU が使えていません（CPU のままでも結果は同じ．遅いだけ）
-- 他の人の計算とぶつからないよう，`nvidia-smi` で使用率・メモリが空いている GPU を選ぶ
-- 終わったら結果（`results/server/*.json`）を push するか，チャットにアップロード
+- 計算ノード: vancouver01/02 = RTX 4090，stuttgart01–03 = RTX 3090（celtic03 は GPU 故障）．同時は 10 本まで
+- 終わったら `results/server/*.json` を push するか，チャットにアップロード
 
 以下は詳しい説明です．
 
