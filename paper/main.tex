@@ -71,9 +71,34 @@ $\beta=(3\lambda+2\mu)\alpha$.
   \item \textbf{Single TSV}: a Cu via (radius $a$) in Si (outer radius $4a$), uniform cooling $\Delta T=-250$\,K.
   \item \textbf{Periodic TSV array}: square array with pitch $L$; a quarter cell with symmetric roller conditions
         (zero normal displacement and zero shear traction) under zero macroscopic strain.
+  \item \textbf{TSV unit cell in 3D and in axisymmetry}: the geometry of \citet{zhu2025morestress}
+        (via diameter 5\,\textmu m, height 50\,\textmu m, pitch 15\,\textmu m, $\Delta T=-250$\,K, liner omitted).
+        We solve the upper half with a symmetric mid-plane and either a clamped top (their scenario 1) or a
+        traction-free top (the wafer surface). The axisymmetric model replaces the square cell by a cylinder of equal
+        area; the 3D model is the quarter of the square cell.
 \end{itemize}
 References are analytic (Kirsch, single TSV) or a P1 finite-element solution on an interface-fitted mesh with
 $h=0.005a$, checked against $2h$ (differences $\le 3\times10^{-5}$ in displacement).
+For the 3D and axisymmetric cells we computed Abaqus references (CAX8, C3D10) and cross-checked them
+(Table~\ref{tab:refcheck}): our axisymmetric FE and Abaqus agree to $<10^{-3}$, the mid-plane stress at the via
+centre matches the plane-strain Lam\'e solution exactly ($\sigma_{rr}=\sigma_{\theta\theta}=642$\,MPa,
+$\sigma_{zz}=917$\,MPa), and the mid-plane of the clamped 3D cell coincides with the 2D plane-strain cell.
+
+\begin{table}[t]
+  \centering
+  \caption{Cross-check of the reference solutions (relative $L_2$ error of displacement; von Mises as mean absolute
+           error normalised by the maximum, as in \citet{zhu2025morestress}).}
+  \label{tab:refcheck}
+  \begin{tabular}{lccc}
+    \toprule
+    Comparison & $\bm u$ & von Mises, mid-plane & von Mises, near top \\
+    \midrule
+    Axisymmetric, clamped: our FE vs Abaqus & $2.2\times10^{-4}$ & $3.2\times10^{-4}$ & $6.5\times10^{-4}$ \\
+    Axisymmetric, free top: our FE vs Abaqus & $8.8\times10^{-5}$ & $3.2\times10^{-4}$ & $7.7\times10^{-4}$ \\
+    3D clamped mid-plane vs 2D plane strain & $2.4\times10^{-4}$ & $3.1\times10^{-4}$ & -- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \subsection{Least-squares PINN with fixed features}
 The displacement in each material phase is $\bm u(\bm x)=\sum_k \bm c_k\phi_k(\bm x)$ with fixed features $\phi_k$.
@@ -96,8 +121,16 @@ Each phase has its own features.
   \item \textbf{MLP2 (classical control)}: features of a random two-layer tanh network with $2N$ hidden units.
 \end{itemize}
 Every model has the same number of features ($2^N$) and its input scale is swept; for each seed we report the
-best scale. This tuning was decisive: an untuned classical baseline looked equal to the quantum model with two
-seeds, while the tuned one was $20\times$ better.
+best scale, and we widen the sweep until the best scale lies inside it. This tuning was decisive: an untuned
+classical baseline looked equal to the quantum model with two seeds, while the tuned one was $20\times$ better;
+and at $N=12$ the cosine features improved from $3.2\times10^{-4}$ to $8.3\times10^{-6}$ once the sweep was
+extended beyond its original upper edge.
+% PROVISIONAL: some 3D / axisymmetric runs still had the best QERC/MLP2 scale at the lower edge; re-runs pending.
+
+The quantum features are simulated exactly as state vectors in JAX, which provides the first and second
+derivatives with respect to the coordinates by automatic differentiation. We checked the implementation against
+Qiskit: for $N=2$--$6$ the outcome probabilities agree to $4\times10^{-16}$ (Statevector), and with $2\times10^5$
+shots (Aer, $N=4$) the sampled frequencies agree within $2.1$ standard errors.
 
 % =====================================================================
 \section{Variational QPINNs are limited by optimization}\label{sec:vqpinn}
@@ -167,12 +200,16 @@ more accurate.
 % =====================================================================
 \section{Problems with material interfaces}\label{sec:apps}
 \subsection{Single TSV}
-For a single Cu via in Si ($N=8$, 3 seeds), QERC reaches $3.9\times10^{-3}$, ten times better than one-layer tanh
-($4.8\times10^{-2}$) or Fourier ($4.5\times10^{-2}$) features. The tensor random projection reproduces the
-quantum result exactly ($3.84\times10^{-3}$ vs $3.85\times10^{-3}$, with matching per-seed and per-scale trends;
-Fig.~\ref{fig:tsvctrl}), and a random two-layer network reaches $1.4\times10^{-2}$.
+For a single Cu via in Si ($N=8$, 5 seeds), QERC reaches $4.6\times10^{-3}$, ten times better than one-layer tanh
+($4.8\times10^{-2}$) or Fourier ($4.3\times10^{-2}$) features. The tensor random projection reproduces the
+quantum result ($4.4\times10^{-3}$, with matching per-seed and per-scale trends; Fig.~\ref{fig:tsvctrl}), and a
+random two-layer network reaches $1.2\times10^{-2}$.
 The advantage over one-layer features therefore comes from the product structure of $\mathcal F_\rho$, not from
 anything specific to quantum measurement.
+The advantage also disappears with more features: at $N=10$ QERC gives $1.5\times10^{-4}$ (tanh $2.1\times10^{-3}$),
+and at $N=12$ the cosine features with a properly extended scale sweep give $8.3\times10^{-6}$, about $7\times$
+better than QERC ($5.6\times10^{-5}$) and tanh ($5.7\times10^{-5}$).
+% PROVISIONAL: N = 10 Fourier was also at the upper edge of its sweep; re-run pending.
 
 \begin{figure}[t]
   \centering\includegraphics[width=0.8\linewidth]{tsv_controls.pdf}
@@ -193,6 +230,32 @@ with 1024 features at $L=6$, all models drop to $\sim\!10^{-5}$ and the cosine f
   \caption{Periodic TSV array: displacement error versus pitch $L$ (256 features; stars: 1024 features at $L=6$).}
   \label{fig:tsvpitch}
 \end{figure}
+
+\subsection{Axisymmetric and 3D unit cells: the near-surface region}
+The region that matters for device placement is just below the wafer surface, which a 2D plane-strain model cannot
+represent. In the axisymmetric cell ($N=8$, 5 seeds; Table~\ref{tab:axisym}) the near-surface von Mises error is
+3--15 times the mid-plane error for every model, and the cosine features are the most accurate in both the clamped
+and the free-top case; QERC is on par with the random two-layer network. The 3D cell with the Abaqus reference shows
+the same ordering at $N=10$ (clamped: QERC $2.9\times10^{-2}$ vs Fourier $1.3\times10^{-2}$ in $\bm u$; free top:
+$8.0\times10^{-3}$ vs $4.4\times10^{-3}$).
+% PROVISIONAL: 3D and axisymmetric QERC/MLP2 best scales were at the lower edge (x1); re-runs with x0.25, x0.5 pending.
+
+\begin{table}[t]
+  \centering
+  \caption{Axisymmetric TSV cell, $N=8$, 5 seeds: relative $L_2(\bm u)$ and normalised von Mises error near the top.}
+  \label{tab:axisym}
+  \begin{tabular}{lcccc}
+    \toprule
+    & \multicolumn{2}{c}{clamped top} & \multicolumn{2}{c}{free top} \\
+    Features & $\bm u$ & von Mises, top & $\bm u$ & von Mises, top \\
+    \midrule
+    QERC, Haar & $2.7\times10^{-2}$ & $9.8\times10^{-3}$ & $9.9\times10^{-3}$ & $2.0\times10^{-2}$ \\
+    MLP2       & $2.7\times10^{-2}$ & $8.8\times10^{-3}$ & $8.1\times10^{-3}$ & $2.1\times10^{-2}$ \\
+    tanh RF    & $1.5\times10^{-2}$ & $8.0\times10^{-3}$ & $3.2\times10^{-3}$ & $1.5\times10^{-2}$ \\
+    Fourier RF & $\bm{6.0\times10^{-3}}$ & $\bm{4.7\times10^{-3}}$ & $\bm{1.5\times10^{-3}}$ & $\bm{6.5\times10^{-3}}$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \subsection{A high-dimensional counterexample}
 One may expect the exponential tensor-product space to help when the input is high-dimensional.
