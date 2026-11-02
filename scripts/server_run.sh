@@ -37,7 +37,7 @@ run_job() {
       done ;;
     tsv3d)
       for N in 8 10; do
-        python 44_tsv_3d.py --ref abaqus --N $N --seeds 3 --out results/server/tsv_3d_abaqus_N${N}.json
+        python 44_tsv_3d.py --ref abaqus --bc ${BC3D:-clamped} --N $N --seeds 3 --out results/server/tsv_3d_abaqus_${BC3D:-clamped}_N${N}.json
       done ;;
     bigN)
       for N in 10 12; do
