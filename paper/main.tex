@@ -31,8 +31,7 @@ Third, we show that the features $p_k(\bm x)=\mathrm{Tr}[U^\dagger|k\rangle\lang
 encoded state, so the reservoir only selects a random $2^N$-dimensional subspace of the tensor-product function space
 spanned by $\rho(\bm x)$; the encoding alone fixes what can be represented.
 A classical random projection of the same tensor-product space reproduces the quantum results exactly.
-On application problems with material interfaces --- a through-silicon via (TSV), periodic TSV arrays and
-carbon-fibre unit cells --- the quantum reservoir matches a classical two-layer random network, while
+On application problems with material interfaces --- a through-silicon via (TSV) and periodic TSV arrays --- the quantum reservoir matches a classical two-layer random network, while
 cosine (Fourier) random features are best in almost every case, by up to $\sim\!40\times$.
 Finally, measurement shot noise is the main obstacle on hardware: with $10^7$ shots per circuit the strong-form
 solution still has errors of 4--11\%. Moving to an energy (Ritz) formulation that needs only first derivatives
@@ -72,12 +71,9 @@ $\beta=(3\lambda+2\mu)\alpha$.
   \item \textbf{Single TSV}: a Cu via (radius $a$) in Si (outer radius $4a$), uniform cooling $\Delta T=-250$\,K.
   \item \textbf{Periodic TSV array}: square array with pitch $L$; a quarter cell with symmetric roller conditions
         (zero normal displacement and zero shear traction) under zero macroscopic strain.
-  \item \textbf{CFRP fibre unit cell}: carbon fibre/epoxy square array with fibre volume fraction
-        $V_f\in\{0.3,0.5,0.6\}$; longitudinal shear $G_{12}$ (a scalar Laplace problem) and transverse $C_{11}$
-        (plane strain) under a unit macroscopic strain.
 \end{itemize}
 References are analytic (Kirsch, single TSV) or a P1 finite-element solution on an interface-fitted mesh with
-$h=0.005a$, checked against $2h$ (differences $\le 3\times10^{-5}$ in displacement and $\le 10^{-5}$ in effective moduli).
+$h=0.005a$, checked against $2h$ (differences $\le 3\times10^{-5}$ in displacement).
 
 \subsection{Least-squares PINN with fixed features}
 The displacement in each material phase is $\bm u(\bm x)=\sum_k \bm c_k\phi_k(\bm x)$ with fixed features $\phi_k$.
@@ -196,20 +192,6 @@ with 1024 features at $L=6$, all models drop to $\sim\!10^{-5}$ and the cosine f
   \centering\includegraphics[width=0.6\linewidth]{tsv_pitch.pdf}
   \caption{Periodic TSV array: displacement error versus pitch $L$ (256 features; stars: 1024 features at $L=6$).}
   \label{fig:tsvpitch}
-\end{figure}
-
-\subsection{CFRP fibre unit cell}
-All models predict the effective moduli to better than $10^{-3}$ (Fig.~\ref{fig:cfrp}).
-Cosine features are best in all cases, by about $20\times$ for $C_{11}$ at $V_f\ge0.5$
-(e.g.\ $8.4\times10^{-6}$ vs $1.6\times10^{-4}$ for QERC at $V_f=0.5$).
-QERC again matches MLP2. As a check of the reference, the FE value of $G_{12}$ agrees with Halpin--Tsai
-($\xi=1$) \citep{affdl1976halpintsai} to 0.1\% at $V_f=0.3$ and deviates by 4\% at $V_f=0.6$, as expected for a
-square array.
-
-\begin{figure}[t]
-  \centering\includegraphics[width=\linewidth]{cfrp_unitcell.pdf}
-  \caption{CFRP unit cell: relative error of the effective moduli $G_{12}$ and $C_{11}$ (3 seeds), and the FE reference.}
-  \label{fig:cfrp}
 \end{figure}
 
 \subsection{A high-dimensional counterexample}
