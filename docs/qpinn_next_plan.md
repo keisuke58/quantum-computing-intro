@@ -466,3 +466,33 @@ QAOA（引き継ぎ用）:
 ## 計算環境（2026-11-02）
 
 重い計算は基本 copaam の GPU で回す（手順は `docs/server_guide.md`）．新しい実験は `scripts/server_run.sh` にジョブとして追加し，結果は `results/server/` に push してもらう．
+
+## Sedykh et al. (2024) と Rakala（OIST）実装の比較（2026-11-02 メモ）
+
+Sedykh, Podapaka, Sagingalieva, Pinto, Pflitsch, Melnikov, "Hybrid quantum physics-informed neural networks for
+simulating computational fluid dynamics in complex shapes", Mach. Learn.: Sci. Technol. 5, 025045 (2024), arXiv:2304.11247
+
+| | Sedykh ら（Terra Quantum） | Rakala（OIST） |
+|---|---|---|
+| 問題 | 3D 定常流（円管，Y 字ミキサー） | 2D 円柱後流（非定常） |
+| 回路の位置 | 古典 MLP の後ろに，古典の経路と並列（Parallel Hybrid Network） | 古典層で前後を挟む（直列） |
+| 量子ビット | 3 qubit（エンコード 5 回の再アップロード + 変分層 2 回） | 4 qubit × 4 層（AngleEmbedding 1 回 + StronglyEntanglingLayers） |
+| 回路の担当 | 速度 v（3 成分）．圧力 p は古典の 1 ユニット | 中間特徴量．最後に古典層で (u, v, p) |
+| 前段の古典 | 5 層 × 64 ニューロン，SiLU | sin 層 16 → tanh 層 4 |
+| 規模 | 大（パラメータの大部分は古典） | 311 パラメータ（素の量子は 79） |
+| 学習 | 物理のみ（PDE + 境界条件），Adam 100 エポック（ミニバッチ） | データ + 物理，L-BFGS-B 2000 反復 |
+| 主張 | 古典より損失が 21% 低い | パラメータ削減（精度・速度は古典が上と自認） |
+
+Sedykh の問題点:
+1. 比較は損失だけ．OpenFOAM との誤差では比べていない．Y 字ミキサーでは古典・量子とも下流で解がゼロに潰れて失敗（量子は左右非対称も出る）
+2. 100 エポックで打ち切り（未収束），シード 1 つ
+3. 古典の対照は量子部分を「n→4 の全結合 1 層」に置き換えただけ（パラメータ数・構造をそろえていない）
+4. 3 qubit・再アップロード 5 回の回路の出力は入力のフーリエ級数（Schuld 2021）→ 実質「cos 型特徴量を足した MLP」．
+   こちらの結果（cos 型古典特徴量が最強）から，21% はフーリエ特徴量の効果である可能性が高い
+
+Rakala 実装の検証結果（`docs/qpinn_cylinder_improve_results.md`）: 量子回路を除いても精度ほぼ同じ（u 0.103 → 0.106），
+同じ 311 パラメータの古典 MLP が誤差約 1/2・時間約 1/8．回路の改良（角度・再アップロード・測定量）はどれも効かない．
+
+追加実験の案: Sedykh の並列ハイブリッド構造を TSV で再現し，(a) 回路を除去，(b) 同じパラメータ数の cos 特徴量層に置換，
+と比べる．21% の正体がフーリエ特徴量なら，台湾の発表の強いネタになる（copaam の GPU で回す）．
+論文では関連研究として引用（ハイブリッド QPINN の代表例，古典対照が公平でない例）．
