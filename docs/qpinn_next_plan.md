@@ -607,3 +607,10 @@ rel L2(u) の幾何平均（シードごとに u 最良の倍率），3 シー�
 
 結果: `results/tsv_single_5s.json`，`results/tsv_controls_5s.json`，`results/tsv_periodic_5s.json`．
 ショットノイズの 5 シード（N = 10）は copaam に回した（`docs/cluster_jobs.md` のジョブ 5）．
+
+## JAX の量子リザバーと Qiskit の一致確認（`49_check_qiskit.py`，2026-11-03）
+
+30 の `make_qerc` と同じ回路を Qiskit で組んで比較（各量子ビットに RY(θ)→P(φ)，その後に同じ U）．
+- Statevector の確率: N = 2, 3, 4, 6 でランダムな 20 点の最大差 1e-16 程度（倍精度の丸め誤差）→ 完全に一致
+- Aer で 20 万ショット（N = 4）: 頻度と確率の差は統計誤差の 2.1 倍以内 → 一致
+- 注意: JAX は量子ビット 0 が最上位ビット，Qiskit は最下位ビット．Qiskit では量子ビットの順を逆に置く
