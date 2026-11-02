@@ -118,44 +118,68 @@ N_QUBITS = 4
 N_LAYERS = 3
 N_ENCODE = 2          # 再アップロード回数 = フーリエ周波数の上限を決める
 
-_dev = qml.device("default.qubit", wires=N_QUBITS)
+# エンコード周波数の付け方:
+#   "uniform" : 全 qubit に同じ角度 r_scaled を入れる（低周波）
+#   "ladder"  : qubit w に (w+1)·r_scaled を入れる（周波数を稼ぐ定番設計）
+# ladder は表現力は上がるが、初期状態で u'' が O(10) になり PDE 残差の最小化が
+# 「高周波成分の抑制」に支配されて自明解に落ちる（rel_L2 ≳ 1）。
+# 「エンコードが関数クラスの周波数を決める」という QPINN の性質がそのまま出る箇所で、
+# 12_qpinn_ablation.py で定量化している。
+FREQ_MODE = "uniform"
+
+_DEV_CACHE = {}
+_QNODE_CACHE = {}
 
 
-@qml.qnode(_dev, interface="torch", diff_method="backprop")
-def _qnn_circuit(r_scaled, theta):
-    """r_scaled: (batch,) / theta: (N_ENCODE, N_LAYERS, N_QUBITS, 2) -> ⟨Z₀⟩ (batch,)"""
-    for e in range(N_ENCODE):
-        # エンコード層: 全 qubit に同じ角度を入れる（低周波エンコード）。
-        # qubit ごとに (w+1) 倍の周波数を入れる版も試したが、u'' が初期から O(10) に
-        # なり PDE 残差が高周波の抑制に支配されて学習が破綻した（rel_L2 ≳ 1）。
-        # 「エンコードが関数クラスの周波数を決める」という QPINN の性質がそのまま出る箇所。
-        for w in range(N_QUBITS):
-            qml.RY(r_scaled, wires=w)
-        # 変分層
-        for l in range(N_LAYERS):
-            for w in range(N_QUBITS):
-                qml.RY(theta[e, l, w, 0], wires=w)
-                qml.RZ(theta[e, l, w, 1], wires=w)
-            for w in range(N_QUBITS - 1):
-                qml.CNOT(wires=[w, w + 1])
-    return qml.expval(qml.PauliZ(0))
+def _get_qnode(n_qubits, n_layers, n_encode, freq_mode):
+    """回路構成ごとに QNode を作ってキャッシュする（アブレーション用）"""
+    key = (n_qubits, n_layers, n_encode, freq_mode)
+    if key in _QNODE_CACHE:
+        return _QNODE_CACHE[key]
+
+    if n_qubits not in _DEV_CACHE:
+        _DEV_CACHE[n_qubits] = qml.device("default.qubit", wires=n_qubits)
+    dev = _DEV_CACHE[n_qubits]
+
+    @qml.qnode(dev, interface="torch", diff_method="backprop")
+    def circuit(r_scaled, theta):
+        """r_scaled: (batch,) / theta: (n_encode, n_layers, n_qubits, 2) -> ⟨Z₀⟩ (batch,)"""
+        for e in range(n_encode):
+            # エンコード層
+            for w in range(n_qubits):
+                angle = r_scaled if freq_mode == "uniform" else (w + 1) * r_scaled
+                qml.RY(angle, wires=w)
+            # 変分層
+            for l in range(n_layers):
+                for w in range(n_qubits):
+                    qml.RY(theta[e, l, w, 0], wires=w)
+                    qml.RZ(theta[e, l, w, 1], wires=w)
+                for w in range(n_qubits - 1):
+                    qml.CNOT(wires=[w, w + 1])
+        return qml.expval(qml.PauliZ(0))
+
+    _QNODE_CACHE[key] = circuit
+    return circuit
 
 
 class QPINN(torch.nn.Module):
-    def __init__(self, seed=0):
+    def __init__(self, seed=0, n_qubits=N_QUBITS, n_layers=N_LAYERS,
+                 n_encode=N_ENCODE, freq_mode=FREQ_MODE, shift0=1.5):
         super().__init__()
+        self.cfg = (n_qubits, n_layers, n_encode, freq_mode)
+        self.circuit = _get_qnode(n_qubits, n_layers, n_encode, freq_mode)
         g = torch.Generator().manual_seed(seed)
         self.theta = torch.nn.Parameter(
-            torch.rand(N_ENCODE, N_LAYERS, N_QUBITS, 2, generator=g) * 2 * math.pi
+            torch.rand(n_encode, n_layers, n_qubits, 2, generator=g) * 2 * math.pi
         )
         self.scale = torch.nn.Parameter(torch.tensor(1.0))
         # 解の平均値程度に初期化しておく（出力スケーリングの初期値は収束に効く）
-        self.shift = torch.nn.Parameter(torch.tensor(1.5))
+        self.shift = torch.nn.Parameter(torch.tensor(float(shift0)))
 
     def forward(self, r):
         # r ∈ [a,b] → [0, π] に正規化（角度エンコードの定番）
         r_scaled = math.pi * (r.reshape(-1) - A_IN) / (B_OUT - A_IN)
-        out = _qnn_circuit(r_scaled, self.theta)
+        out = self.circuit(r_scaled, self.theta)
         return self.scale * out.reshape(-1) + self.shift
 
 

@@ -1,0 +1,392 @@
+[
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "QERC-Haar",
+  "seed": 0,
+  "scale": 1.0,
+  "u": 0.05264016971745591,
+  "vm_mid": 0.010853177237844527,
+  "vm_top": 0.02001931213044498
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "QERC-Haar",
+  "seed": 0,
+  "scale": 2.0,
+  "u": 0.18992857596916818,
+  "vm_mid": 0.009555985659681436,
+  "vm_top": 0.05821381919749428
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "QERC-Haar",
+  "seed": 0,
+  "scale": 4.0,
+  "u": 0.3661897768606986,
+  "vm_mid": 0.03815403688072602,
+  "vm_top": 0.10209799115856803
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "MLP2-RF",
+  "seed": 0,
+  "scale": 1.0,
+  "u": 0.08805953160773775,
+  "vm_mid": 0.010198732482369488,
+  "vm_top": 0.03491560320659291
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "MLP2-RF",
+  "seed": 0,
+  "scale": 2.0,
+  "u": 0.1519058645142628,
+  "vm_mid": 0.0100719959743491,
+  "vm_top": 0.05077256107776812
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "MLP2-RF",
+  "seed": 0,
+  "scale": 4.0,
+  "u": 0.299538066463978,
+  "vm_mid": 0.026792371840340754,
+  "vm_top": 0.07326101608920149
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "tanh-RF",
+  "seed": 0,
+  "scale": 2.0,
+  "u": 0.1266504670956651,
+  "vm_mid": 0.023912055757214643,
+  "vm_top": 0.03458690163247102
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "tanh-RF",
+  "seed": 0,
+  "scale": 4.0,
+  "u": 0.1357590880471692,
+  "vm_mid": 0.02348086885675435,
+  "vm_top": 0.043847463433357846
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "tanh-RF",
+  "seed": 0,
+  "scale": 8.0,
+  "u": 0.29335168767453745,
+  "vm_mid": 0.032320020008855165,
+  "vm_top": 0.06861664983305708
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "Fourier",
+  "seed": 0,
+  "scale": 2.0,
+  "u": 0.07696417641757158,
+  "vm_mid": 0.016804916267998418,
+  "vm_top": 0.022058473380712606
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "Fourier",
+  "seed": 0,
+  "scale": 4.0,
+  "u": 0.06277567584828003,
+  "vm_mid": 0.014552369442111263,
+  "vm_top": 0.017228998973527945
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "Fourier",
+  "seed": 0,
+  "scale": 8.0,
+  "u": 0.11958202104561287,
+  "vm_mid": 0.03552133147857325,
+  "vm_top": 0.04382059647687758
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "Fourier",
+  "seed": 0,
+  "scale": 16.0,
+  "u": 0.8706390955800783,
+  "vm_mid": 0.1622282588868159,
+  "vm_top": 0.1456477867770579
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "QERC-Haar",
+  "seed": 1,
+  "scale": 1.0,
+  "u": 0.061307228280876494,
+  "vm_mid": 0.008339392891973338,
+  "vm_top": 0.017916456563385134
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "QERC-Haar",
+  "seed": 1,
+  "scale": 2.0,
+  "u": 0.18441661293113507,
+  "vm_mid": 0.013214201983731551,
+  "vm_top": 0.06592390250993668
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "QERC-Haar",
+  "seed": 1,
+  "scale": 4.0,
+  "u": 0.5168197340464312,
+  "vm_mid": 0.0566971333478248,
+  "vm_top": 0.07489454891211475
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "MLP2-RF",
+  "seed": 1,
+  "scale": 1.0,
+  "u": 0.09509957178102285,
+  "vm_mid": 0.01986472031998818,
+  "vm_top": 0.027580770663870845
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "MLP2-RF",
+  "seed": 1,
+  "scale": 2.0,
+  "u": 0.1967361556264666,
+  "vm_mid": 0.021789357084593747,
+  "vm_top": 0.05782318984755049
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "MLP2-RF",
+  "seed": 1,
+  "scale": 4.0,
+  "u": 0.4104218431975527,
+  "vm_mid": 0.04230174698619705,
+  "vm_top": 0.11205692923319235
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "tanh-RF",
+  "seed": 1,
+  "scale": 2.0,
+  "u": 0.11668763407831358,
+  "vm_mid": 0.023435848849768737,
+  "vm_top": 0.0365381492896663
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "tanh-RF",
+  "seed": 1,
+  "scale": 4.0,
+  "u": 0.1555346839631808,
+  "vm_mid": 0.01983454455961568,
+  "vm_top": 0.049502498536238476
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "tanh-RF",
+  "seed": 1,
+  "scale": 8.0,
+  "u": 0.2798810797635412,
+  "vm_mid": 0.03940833906342392,
+  "vm_top": 0.06577901367525849
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "Fourier",
+  "seed": 1,
+  "scale": 2.0,
+  "u": 0.07679691486721375,
+  "vm_mid": 0.01704014209265753,
+  "vm_top": 0.02028794630402912
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "Fourier",
+  "seed": 1,
+  "scale": 4.0,
+  "u": 0.05636108644049155,
+  "vm_mid": 0.015938633107074242,
+  "vm_top": 0.016565787201471435
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "Fourier",
+  "seed": 1,
+  "scale": 8.0,
+  "u": 0.1404416939861428,
+  "vm_mid": 0.02827463329666748,
+  "vm_top": 0.044914124778710325
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "Fourier",
+  "seed": 1,
+  "scale": 16.0,
+  "u": 0.8901090647464593,
+  "vm_mid": 0.1621275087473671,
+  "vm_top": 0.15372017236307436
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "QERC-Haar",
+  "seed": 2,
+  "scale": 1.0,
+  "u": 0.07034489275319626,
+  "vm_mid": 0.0076136211215594735,
+  "vm_top": 0.0229112957095452
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "QERC-Haar",
+  "seed": 2,
+  "scale": 2.0,
+  "u": 0.20495455831806475,
+  "vm_mid": 0.011634729450580137,
+  "vm_top": 0.0667972044321357
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "QERC-Haar",
+  "seed": 2,
+  "scale": 4.0,
+  "u": 0.4759841624308058,
+  "vm_mid": 0.048631454560683775,
+  "vm_top": 0.08560723311895546
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "MLP2-RF",
+  "seed": 2,
+  "scale": 1.0,
+  "u": 0.09103654030156177,
+  "vm_mid": 0.012314171696615799,
+  "vm_top": 0.029572182971272017
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "MLP2-RF",
+  "seed": 2,
+  "scale": 2.0,
+  "u": 0.193163033225815,
+  "vm_mid": 0.018002622364586652,
+  "vm_top": 0.06110873661395141
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "MLP2-RF",
+  "seed": 2,
+  "scale": 4.0,
+  "u": 0.36791192974903353,
+  "vm_mid": 0.038220403388726044,
+  "vm_top": 0.06886665596680894
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "tanh-RF",
+  "seed": 2,
+  "scale": 2.0,
+  "u": 0.12413079322225942,
+  "vm_mid": 0.02792189777625332,
+  "vm_top": 0.03488074104618649
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "tanh-RF",
+  "seed": 2,
+  "scale": 4.0,
+  "u": 0.14582644571394787,
+  "vm_mid": 0.02590543567605738,
+  "vm_top": 0.04615043022365409
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "tanh-RF",
+  "seed": 2,
+  "scale": 8.0,
+  "u": 0.3280811083012263,
+  "vm_mid": 0.03864953360140605,
+  "vm_top": 0.07312139051641257
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "Fourier",
+  "seed": 2,
+  "scale": 2.0,
+  "u": 0.08131055249755464,
+  "vm_mid": 0.015472071719907238,
+  "vm_top": 0.020682892462370612
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "Fourier",
+  "seed": 2,
+  "scale": 4.0,
+  "u": 0.05596134188339224,
+  "vm_mid": 0.01378270356598011,
+  "vm_top": 0.015443322980540559
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "Fourier",
+  "seed": 2,
+  "scale": 8.0,
+  "u": 0.14202527093297326,
+  "vm_mid": 0.030968032199169843,
+  "vm_top": 0.05050346113367731
+ },
+ {
+  "bc": "clamped",
+  "ref": "abaqus",
+  "model": "Fourier",
+  "seed": 2,
+  "scale": 16.0,
+  "u": 0.9979272950073294,
+  "vm_mid": 0.15973421290178133,
+  "vm_top": 0.15290076327995872
+ }
+]
