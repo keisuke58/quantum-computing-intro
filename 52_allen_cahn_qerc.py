@@ -98,8 +98,8 @@ def _ac_newton_iter(Phi, Phixx, uk, a, rhs0, D):
 
 
 # ---------------- time marching with fixed features ----------------
-def march(Phi, Phixx, x, D, dt, T, t_out, newton=6, tol=1e-10, efun=None):
-    u0 = x**2 * np.cos(np.pi * x)
+def march(Phi, Phixx, x, D, dt, T, t_out, newton=6, tol=1e-10, efun=None, u0=None):
+    u0 = x**2 * np.cos(np.pi * x) if u0 is None else u0(x)
     c = lsq(Phi, u0); u_prev = None; u = Phi @ c
     err_ic = np.linalg.norm(u - u0) / np.linalg.norm(u0)
     Es = [efun(u)] if efun else None
@@ -130,7 +130,7 @@ def march(Phi, Phixx, x, D, dt, T, t_out, newton=6, tol=1e-10, efun=None):
 
 
 # ---------------- reference: Fourier spectral + ETDRK4 ----------------
-def reference(D, x_eval, T_out, n_modes=1024, dt=1e-5):
+def reference(D, x_eval, T_out, n_modes=1024, dt=1e-5, u0=None):
     xs = -1 + 2 * np.arange(n_modes) / n_modes
     k = np.fft.fftfreq(n_modes, d=2 / n_modes) * 2 * np.pi
     L = -D * k**2 + 5.0
@@ -142,7 +142,7 @@ def reference(D, x_eval, T_out, n_modes=1024, dt=1e-5):
     f2 = dt * np.real(np.mean((2 + LR + np.exp(LR) * (-2 + LR)) / LR**3, 1))
     f3 = dt * np.real(np.mean((-4 - 3 * LR - LR**2 + np.exp(LR) * (4 - LR)) / LR**3, 1))
     Nf = lambda v: np.fft.fft(-5 * np.real(np.fft.ifft(v))**3)
-    v = np.fft.fft(xs**2 * np.cos(np.pi * xs)); out = {}
+    v = np.fft.fft(xs**2 * np.cos(np.pi * xs) if u0 is None else u0(xs)); out = {}
     want = {int(round(t / dt)): t for t in T_out}
     for n in range(1, int(round(max(T_out) / dt)) + 1):
         Nv = Nf(v); a = E2 * v + Q * Nv; Na = Nf(a); b = E2 * v + Q * Na; Nb = Nf(b)
