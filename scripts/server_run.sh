@@ -9,7 +9,8 @@
 #     bigN     量子ビット数を増やした TSV 単体（N=10, 12，3 シード）
 #     tsv3d_plane  3D unit cell TSV vs approx. plane-strain reference (N=8,10)
 #     tsv3d    3D unit cell TSV vs Abaqus reference (needs results/abaqus from fifa)
-#     edge_single / edge_axisym / edge_3d / edge_plane / edge_periodic  re-runs with wider scale grids (best scale was at the grid edge)
+#     edge_single / edge_axisym / edge_3d / edge_plane / edge_periodic  re-runs
+#     pf_ac / pf_ch  phase field: Allen-Cahn and Cahn-Hilliard (PFN=8|10, PFSEEDS) with wider scale grids (best scale was at the grid edge)
 #     axisym   軸対称 (r, z) の TSV 1 本（MORE-Stress の寸法，上下固定 / 上面自由，5 シード）
 #   接続が切れても止まらないよう，nohup で裏で動かす．進み具合: tail -f logs/<ジョブ名>.log
 set -euo pipefail
@@ -55,6 +56,10 @@ run_job() {
       done ;;
     edge_periodic)
       python 34_tsv_periodic.py --L 3 --models Fourier --scales 32,64,128 --seeds 5 --out results/server/tsv_periodic_L3_fourier_wide.json ;;
+    pf_ac)
+      python 52_allen_cahn_qerc.py --D 1e-4 --N ${PFN:-8} --seeds 5 --out results/server/allen_cahn_N${PFN:-8}.json ;;
+    pf_ch)
+      python 54_cahn_hilliard_qerc.py --eps2 0.02 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --out results/server/cahn_hilliard_N${PFN:-8}.json ;;
     bigN)
       for N in 10 12; do
         python 30_qerc_tsv_single.py --N $N --seeds 3 --out results/server/tsv_single_N${N}.json

@@ -130,9 +130,9 @@ def main():
     t_out = [0.25, 0.5, 1.0]
     t0 = time.time(); ref = reference(a.D, x, t_out); print(f"reference {time.time()-t0:.0f}s", flush=True)
     grid = {
-        "QERC-Haar": ([0.5, 1, 2, 4], lambda sd, s: make_qerc(a.N, sd, s)),
-        "tanh-RF": ([2, 4, 8, 16, 32], lambda sd, s: make_tanh(m, sd, s)),
-        "Fourier": ([2, 4, 8, 16, 32, 64], lambda sd, s: make_fourier(m, sd, s)),
+        "QERC-Haar": ([1, 2, 4, 8, 16, 32], lambda sd, s: make_qerc(a.N, sd, s)),
+        "tanh-RF": ([4, 8, 16, 32, 64], lambda sd, s: make_tanh(m, sd, s)),
+        "Fourier": ([4, 8, 16, 32, 64], lambda sd, s: make_fourier(m, sd, s)),
     }
     grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
     if a.scales:
