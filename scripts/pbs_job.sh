@@ -16,6 +16,11 @@ exec > "logs/pbs_${JOB:?set JOB with -v JOB=...}${BC3D:+_$BC3D}${PFN:+_N$PFN}.lo
 
 unset LD_LIBRARY_PATH                         # PBS sets the system CUDA libs, which clash with the pip CUDA wheels
 export XLA_PYTHON_CLIENT_PREALLOCATE=false
+# Keep CPU threads within the reserved cores (ppn). Without this, numpy/BLAS and XLA's CPU backend
+# used 4-6 cores per job while only 2 were reserved (52/54 ran on CPU, GPU at 0%).
+NT=${PBS_NUM_PPN:-2}
+export OMP_NUM_THREADS=$NT OPENBLAS_NUM_THREADS=$NT MKL_NUM_THREADS=$NT NUMEXPR_NUM_THREADS=$NT
+export XLA_FLAGS="${XLA_FLAGS:-} --xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=$NT"
 export CUDA_VISIBLE_DEVICES=$(grep -oE "gpu[0-9]+" "$PBS_GPUFILE" | head -1 | grep -oE "[0-9]+")
 source .venv/bin/activate
 python -c "import jax; print('devices:', jax.devices())"
