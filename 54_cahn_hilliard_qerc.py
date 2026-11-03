@@ -55,7 +55,7 @@ def march(Phi, Phixx, x, eps2, dt, T, t_out, newton=8, tol=1e-10):
     return err_ic, out
 
 
-def reference(eps2, x_eval, T_out, n_modes=512, dt=1e-5):
+def reference(eps2, x_eval, T_out, n_modes=256, dt=1e-5):
     xs = -1 + 2 * np.arange(n_modes) / n_modes
     k = np.fft.fftfreq(n_modes, d=2 / n_modes) * 2 * np.pi
     L = k**2 - eps2 * k**4                     # -k^2 (-phi) - eps2 k^4 phi
