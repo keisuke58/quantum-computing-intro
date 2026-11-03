@@ -15,7 +15,7 @@
   export CUDA_VISIBLE_DEVICES=$(grep -oE "gpu[0-9]+" "$PBS_GPUFILE" | head -1 | grep -oE "[0-9]+")
   cd <repo> && .venv/bin/python 30_qerc_tsv_single.py --N 10 --seeds 3 --out results/server/tsv_single_N10.json
   ```
-- 投入前に `pbsnodes -a` / `qstat -a` で空きを見る。同時は 10 本まで。
+- 投入前に `pbsnodes -a` / `qstat -a` で空きを見る。**研究室は 15 人ほどで GPU を共有している**ので、自分の GPU ジョブは同時に 4 本程度までにして独り占めしない（PBS の上限は 10 本）。`pbs_job.sh` は、割り当てられた GPU を他の人がすでに使っていたら始めずに終わる（exit 3）。
 - **ジョブスクリプトは ASCII だけで書く**。日本語のコメントが 1 文字でもあると Torque が `qsub:  file must be an ascii script` で受け付けない（`scripts/pbs_job.sh` がそうだった）。
 - `bash scripts/server_setup.sh gpu` は copaam で実行してよい（`.venv` を作るだけ）。copaam には GPU が無いので、
   最後の確認は `CpuDevice` と CUDA のエラーを出すが正常。GPU の確認は計算ノードで行う。

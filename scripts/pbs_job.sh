@@ -25,7 +25,7 @@ export CUDA_VISIBLE_DEVICES=$(grep -oE "gpu[0-9]+" "$PBS_GPUFILE" | head -1 | gr
 source .venv/bin/activate
 python -c "import jax; print('devices:', jax.devices())"
 
-# Shared GPUs (about 15 people in the lab): yield if someone else's process is on our GPU.
+# Shared GPUs (about 15 people in the lab): do not start on a GPU someone else is already using.
 # Jobs started outside PBS (Jupyter, ssh) can land on a GPU that PBS gave to us.
 GPU_UUID=$(nvidia-smi -i "$CUDA_VISIBLE_DEVICES" --query-gpu=uuid --format=csv,noheader 2>/dev/null)
 foreign_on_gpu() {
@@ -44,15 +44,5 @@ fi
 
 # Load the job definitions from server_run.sh and run them here (no nohup)
 eval "$(sed -n '/^run_job() {/,/^}/p' scripts/server_run.sh)"
-run_job "$JOB" &
-RUN=$!
-while kill -0 "$RUN" 2>/dev/null; do
-  sleep 60
-  if who=$(foreign_on_gpu); then
-    echo "=== $(date '+%F %T') GPU $CUDA_VISIBLE_DEVICES now shared with $who; stopping to free it ==="
-    pkill -TERM -P "$RUN"; kill -TERM "$RUN" 2>/dev/null; wait "$RUN" 2>/dev/null
-    exit 3
-  fi
-done
-wait "$RUN"
+run_job "$JOB"
 echo "=== done ==="
