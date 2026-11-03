@@ -1,14 +1,16 @@
 """
 Cahn-Hilliard in 1D with fixed features + least squares, mixed form, marched in time.
 
-    phi_t = mu_xx,   mu = phi^3 - phi - eps2 * phi_xx,   x in [-1, 1],  periodic,
-    phi(0, x) = cos(pi x) - exp(-4 (pi x)^2)
+    phi_t = mu_xx,   mu = g2 (phi^3 - phi) - eps2 * phi_xx,   x in [-1, 1],  periodic,
+    phi(0, x) = cos(pi x) - exp(-4 (pi x)^2)   (--ic gauss, default; g2 = 1, eps2 = 0.02)
+             or -cos(2 pi x)                   (--ic cos2: Wight & Zhao 2021, g2 = 0.01, eps2 = 1e-6)
 
 Both phi and mu are expanded in the same fixed features (only second derivatives are needed).
 Time: BDF2 (first step backward Euler); phi^3 by Newton; every Newton iteration is one least-squares solve
 for the coefficients of phi and mu together. Reference: Fourier pseudo-spectral + ETDRK4.
 
   python 54_cahn_hilliard_qerc.py --eps2 0.02 --N 8 --seeds 2
+  python 54_cahn_hilliard_qerc.py --eps2 1e-6 --g2 0.01 --ic cos2 --ref_modes 1024 --N 8   # Wight & Zhao
   python 54_cahn_hilliard_qerc.py --check      # exact Fourier basis: time-step error and reference check
 """
 import argparse, json, os, time
@@ -20,7 +22,13 @@ _spec = importlib.util.spec_from_file_location("ac", os.path.join(_here, "52_all
 ac = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(ac)
 
 
+G2 = 1.0          # set from --g2 in main()
+IC = "gauss"      # set from --ic in main()
+
+
 def phi0(x):
+    if IC == "cos2":
+        return -np.cos(2 * np.pi * x)
     return np.cos(np.pi * x) - np.exp(-4 * (np.pi * x) ** 2)
 
 
@@ -38,10 +46,10 @@ def march(Phi, Phixx, x, eps2, dt, T, t_out, newton=8, tol=1e-10):
         pk = p.copy()
         for _ in range(newton):
             # eq 1 (times dt): c0 phi - dt mu_xx = rhs0
-            # eq 2: mu - (3 pk^2 - 1) phi + eps2 phi_xx = -2 pk^3
+            # eq 2: mu - g2 (3 pk^2 - 1) phi + eps2 phi_xx = -2 g2 pk^3
             A = np.block([[c0 * Phi, -dt * Phixx],
-                          [-(3 * pk**2 - 1)[:, None] * Phi + eps2 * Phixx, Phi]])
-            b = np.concatenate([rhs0, -2 * pk**3])
+                          [-(G2 * (3 * pk**2 - 1))[:, None] * Phi + eps2 * Phixx, Phi]])
+            b = np.concatenate([rhs0, -2 * G2 * pk**3])
             w = ac.lsq(A, b)
             pn = Phi @ w[:m]
             d = np.max(np.abs(pn - pk)); pk = pn
@@ -58,7 +66,7 @@ def march(Phi, Phixx, x, eps2, dt, T, t_out, newton=8, tol=1e-10):
 def reference(eps2, x_eval, T_out, n_modes=256, dt=1e-5):
     xs = -1 + 2 * np.arange(n_modes) / n_modes
     k = np.fft.fftfreq(n_modes, d=2 / n_modes) * 2 * np.pi
-    L = k**2 - eps2 * k**4                     # -k^2 (-phi) - eps2 k^4 phi
+    L = G2 * k**2 - eps2 * k**4                # -k^2 (-g2 phi) - eps2 k^4 phi
     E, E2 = np.exp(dt * L), np.exp(dt * L / 2)
     M = 32; r = np.exp(1j * np.pi * (np.arange(1, M + 1) - 0.5) / M)
     LR = dt * L[:, None] + r[None, :]
@@ -66,7 +74,7 @@ def reference(eps2, x_eval, T_out, n_modes=256, dt=1e-5):
     f1 = dt * np.real(np.mean((-4 - LR + np.exp(LR) * (4 - 3 * LR + LR**2)) / LR**3, 1))
     f2 = dt * np.real(np.mean((2 + LR + np.exp(LR) * (-2 + LR)) / LR**3, 1))
     f3 = dt * np.real(np.mean((-4 - 3 * LR - LR**2 + np.exp(LR) * (4 - LR)) / LR**3, 1))
-    Nf = lambda v: -k**2 * np.fft.fft(np.real(np.fft.ifft(v))**3)
+    Nf = lambda v: -G2 * k**2 * np.fft.fft(np.real(np.fft.ifft(v))**3)
     v = np.fft.fft(phi0(xs)); out = {}
     want = {int(round(t / dt)): t for t in T_out}
     for n in range(1, int(round(max(T_out) / dt)) + 1):
@@ -89,6 +97,9 @@ def fourier_basis(x, K):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--eps2", type=float, default=0.02)
+    ap.add_argument("--g2", type=float, default=1.0)
+    ap.add_argument("--ic", default="gauss", choices=["gauss", "cos2"])
+    ap.add_argument("--ref_modes", type=int, default=256)
     ap.add_argument("--N", type=int, default=8)
     ap.add_argument("--seeds", type=int, default=2)
     ap.add_argument("--dt", type=float, default=1e-3)
@@ -98,17 +109,19 @@ def main():
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--out", default="results/cahn_hilliard.json")
     a = ap.parse_args()
+    global G2, IC
+    G2, IC = a.g2, a.ic
     m = 2**a.N; M = 4 * m
     x = -1 + 2 * (np.arange(M) + 0.5) / M; h = 2 / M
     t_out = [round(a.T * f, 6) for f in (0.25, 0.5, 1.0)]
-    t0 = time.time(); ref = reference(a.eps2, x, t_out); print(f"reference {time.time()-t0:.0f}s", flush=True)
+    t0 = time.time(); ref = reference(a.eps2, x, t_out, n_modes=a.ref_modes); print(f"reference {time.time()-t0:.0f}s", flush=True)
     rel = lambda u, t: float(np.linalg.norm(u - ref[t]) / np.linalg.norm(ref[t]))
     mass0 = np.sum(phi0(x)) * h
     print("reference: max|phi| " + " ".join(f"t={t}:{np.abs(ref[t]).max():.3f}" for t in t_out) +
           f"  change from t=0 at T: {np.linalg.norm(ref[t_out[-1]] - phi0(x)) / np.linalg.norm(phi0(x)):.2f}" +
           f"  mass drift {abs(np.sum(ref[t_out[-1]]) * h - mass0):.1e}")
     if a.check:
-        ref2 = reference(a.eps2, x, t_out, dt=2e-5)
+        ref2 = reference(a.eps2, x, t_out, n_modes=a.ref_modes, dt=2e-5)
         print("reference dt x2:", " ".join(f"{rel(ref2[t], t):.1e}" for t in t_out))
         for K in (64, 128):
             P, Pxx = fourier_basis(x, K)
@@ -134,7 +147,7 @@ def main():
                 e_ic, out = march(Phi, Phixx, x, a.eps2, a.dt, a.T, t_out)
                 errs = {t: (rel(out[t], t) if out else float("nan")) for t in t_out}
                 drift = float(abs(np.sum(out[t_out[-1]]) * h - mass0)) if out else float("nan")
-                rows.append({"eps2": a.eps2, "N": a.N, "model": name, "seed": sd, "scale": s, "ic": float(e_ic),
+                rows.append({"eps2": a.eps2, "g2": a.g2, "init": a.ic, "N": a.N, "model": name, "seed": sd, "scale": s, "ic": float(e_ic),
                              "mass_drift": drift, **{f"t{t}": e for t, e in errs.items()}})
                 print(f"{name:10s} seed={sd} x{s:<5} ic={e_ic:.1e} " +
                       " ".join(f"t={t}:{e:.1e}" for t, e in errs.items()) + f" mass {drift:.1e}  {time.time()-t0:.0f}s",

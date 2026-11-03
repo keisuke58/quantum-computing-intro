@@ -40,6 +40,7 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | 10 | `edge_periodic` | 周期配列 L = 3 の Fourier を ×32, ×64, ×128（5 シードとも最良が上限 ×16 の端だった）．`qsub -v JOB=edge_periodic scripts/pbs_job.sh` | `results/server/tsv_periodic_L3_fourier_wide.json` | 約 30 分 | 完了（2026-11-03）：×32 で 7.7e-2 と悪化、最良は ×16（1.4e-5）のまま |
 | 11 | `pf_ac` | **Phase-field：Allen–Cahn**（Raissi 2019 の式 12）．量子リザバー・tanh・Fourier，5 シード，倍率は広めの範囲．N = 8 と 10 を別々に投げる：`qsub -v JOB=pf_ac,PFN=8 scripts/pbs_job.sh` と `qsub -v JOB=pf_ac,PFN=10 scripts/pbs_job.sh`（ログは `logs/pbs_pf_ac_N8.log` のように N 付き） | `results/server/allen_cahn_N8.json`，`_N10.json` | N = 8：1〜2 時間，N = 10：半日 | 未実行 |
 | 12 | `pf_ch` | **Phase-field：Cahn–Hilliard**（混合形，ε² = 0.02）．N = 8 は 5 シード `qsub -v JOB=pf_ch,PFN=8 scripts/pbs_job.sh`，N = 10 は重いので 3 シード `qsub -v JOB=pf_ch,PFN=10,PFSEEDS=3 scripts/pbs_job.sh`（ログは `logs/pbs_pf_ch_N8.log` など） | `results/server/cahn_hilliard_N8.json`，`_N10.json` | N = 8：数時間，N = 10：1 日程度 | 未実行 |
+| 13 | `pf_ch_wz` | **Cahn–Hilliard を Wight & Zhao（2021）の例題で**（γ2 = 0.01，γ1 = 1e-6，u0 = −cos 2πx．界面が鋭い）．古典 PINN の報告値 9.51e-3 と直接比べるため．N = 8 は 5 シード `qsub -v JOB=pf_ch_wz,PFN=8 scripts/pbs_job.sh`，N = 10 は 3 シード `qsub -v JOB=pf_ch_wz,PFN=10,PFSEEDS=3 scripts/pbs_job.sh` | `results/server/cahn_hilliard_wz_N8.json`，`_N10.json` | N = 8：数時間，N = 10：1 日程度 | 未実行 |
 
 （`seeds5` / `tsv` / `array` は Claude 側の環境で回したので不要）
 
