@@ -32,7 +32,18 @@
 | arXiv 2411.16233 | PF への Carleman 線形化（長時間で発散する問題の対策） | 同上 |
 | arXiv 2510.19855 | 反応拡散（AC を含む）の Chebyshev 型量子アルゴリズム | 同上 |
 
-**量子リザバー（学習なし）で AC・CH を解いた論文は見つからなかった．** 量子で AC を扱った PINN は Zabihi ら（変分のハイブリッド）だけ．
+**量子リザバー（学習なし）で AC・CH を解いた論文は見つからなかった．**
+
+### 研究室内：佐々木翔矢くん（村松研）の CLS
+
+- Sasaki, Endo, Muramatsu, "Hamiltonian simulation for nonlinear partial differential equation by Schrödingerization", Sci. Rep. 16, 11743 (2026)（arXiv 2508.01640）
+- **CLS = Carleman 線形化 ＋ Schrödingerization**（warped phase transformation）．非線形の反応拡散を線形化し，Schrödinger 方程式にしてハミルトニアンシミュレーションで解く
+- 例題：`φ_t = D φ_xx + φ − φ²`（Fisher–KPP 型，2 次の非線形），x ∈ (0, 1)，Dirichlet，`φ0 = 0.5 − 0.5 cos 2πx`．差分 36 点，Carleman 3 次
+- 論文の数値は CLS の古典シミュレーション（実機・回路シミュレーションなし）．2026 年は実機向けの具体的な量子回路設計（WCCM-ECCOMAS 2026，第 31 回計算工学講演会，門脇・鈴木と共著）
+- 今回との関係：同じ「非線形の反応拡散を量子で」でも，佐々木くんは誤り耐性向けのハミルトニアンシミュレーション，こちらは近い将来の機械向けの量子リザバー ＋ 最小二乗．**重ならず補い合う**
+  - 共通の例題（佐々木くんの Fisher–KPP 型，または AC）で両方を並べると研究室としてまとまる．こちらの方法は Dirichlet 境界も境界条件の行を足せば扱える
+  - 進める前に佐々木くんと例題・パラメータをすり合わせる
+ 量子で AC を扱った PINN は Zabihi ら（変分のハイブリッド）だけ．
 
 ## 4. 論文での位置づけ（案）
 
