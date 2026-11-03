@@ -25,6 +25,23 @@ export CUDA_VISIBLE_DEVICES=$(grep -oE "gpu[0-9]+" "$PBS_GPUFILE" | head -1 | gr
 source .venv/bin/activate
 python -c "import jax; print('devices:', jax.devices())"
 
+# Shared GPUs (about 15 people in the lab): do not start on a GPU someone else is already using.
+# Jobs started outside PBS (Jupyter, ssh) can land on a GPU that PBS gave to us.
+GPU_UUID=$(nvidia-smi -i "$CUDA_VISIBLE_DEVICES" --query-gpu=uuid --format=csv,noheader 2>/dev/null)
+foreign_on_gpu() {
+  local pid owner
+  for pid in $(nvidia-smi --query-compute-apps=gpu_uuid,pid --format=csv,noheader 2>/dev/null \
+               | awk -F', ' -v u="$GPU_UUID" '$1 == u {print $2}'); do
+    owner=$(ps -o user= -p "$pid" 2>/dev/null)
+    [ -n "$owner" ] && [ "$owner" != "$(id -un)" ] && { echo "$owner pid $pid"; return 0; }
+  done
+  return 1
+}
+if who=$(foreign_on_gpu); then
+  echo "=== GPU $CUDA_VISIBLE_DEVICES is already used by $who; not starting (resubmit later) ==="
+  exit 3
+fi
+
 # Load the job definitions from server_run.sh and run them here (no nohup)
 eval "$(sed -n '/^run_job() {/,/^}/p' scripts/server_run.sh)"
 run_job "$JOB"
