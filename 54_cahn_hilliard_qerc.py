@@ -32,11 +32,18 @@ def phi0(x):
     return np.cos(np.pi * x) - np.exp(-4 * (np.pi * x) ** 2)
 
 
-def march(Phi, Phixx, x, eps2, dt, T, t_out, newton=8, tol=1e-10):
+def energy_ch(p, eps2):
+    """free energy E = int (eps2/2 phi_x^2 + g2/4 (phi^2 - 1)^2) dx; Cahn-Hilliard is its H^-1 gradient flow"""
+    h = 2 / len(p)
+    return float(h * np.sum(0.5 * eps2 * ac.grad_x(p) ** 2 + 0.25 * G2 * (p**2 - 1) ** 2))
+
+
+def march(Phi, Phixx, x, eps2, dt, T, t_out, newton=8, tol=1e-10, efun=None):
     m = Phi.shape[1]; Z = np.zeros_like(Phi)
     u0 = phi0(x)
     a = ac.lsq(Phi, u0); p = Phi @ a; p_prev = None
     err_ic = np.linalg.norm(p - u0) / np.linalg.norm(u0)
+    Es = [efun(p)] if efun else None
     out = {}; want = {int(round(t / dt)): t for t in t_out}
     for n in range(1, int(round(T / dt)) + 1):
         if p_prev is None:
@@ -58,8 +65,12 @@ def march(Phi, Phixx, x, eps2, dt, T, t_out, newton=8, tol=1e-10):
         p_prev, p = p, pk
         if not np.all(np.isfinite(p)) or np.max(np.abs(p)) > 10:
             return err_ic, None
+        if efun:
+            Es.append(efun(p))
         if n in want:
             out[want[n]] = p.copy()
+    if efun:
+        out["E"] = Es
     return err_ic, out
 
 
@@ -117,6 +128,9 @@ def main():
     t0 = time.time(); ref = reference(a.eps2, x, t_out, n_modes=a.ref_modes); print(f"reference {time.time()-t0:.0f}s", flush=True)
     rel = lambda u, t: float(np.linalg.norm(u - ref[t]) / np.linalg.norm(ref[t]))
     mass0 = np.sum(phi0(x)) * h
+    E_ref = {t: energy_ch(ref[t], a.eps2) for t in t_out}
+    print(f"reference energy: t=0:{energy_ch(phi0(x), a.eps2):.5f} " +
+          " ".join(f"t={t}:{E_ref[t]:.5f}" for t in t_out), flush=True)
     print("reference: max|phi| " + " ".join(f"t={t}:{np.abs(ref[t]).max():.3f}" for t in t_out) +
           f"  change from t=0 at T: {np.linalg.norm(ref[t_out[-1]] - phi0(x)) / np.linalg.norm(phi0(x)):.2f}" +
           f"  mass drift {abs(np.sum(ref[t_out[-1]]) * h - mass0):.1e}")
@@ -144,13 +158,15 @@ def main():
             for s in scales:
                 t0 = time.time()
                 Phi, Phixx = ac.feature_mats(ctor(sd, s), x)
-                e_ic, out = march(Phi, Phixx, x, a.eps2, a.dt, a.T, t_out)
+                e_ic, out = march(Phi, Phixx, x, a.eps2, a.dt, a.T, t_out, efun=lambda p: energy_ch(p, a.eps2))
                 errs = {t: (rel(out[t], t) if out else float("nan")) for t in t_out}
                 drift = float(abs(np.sum(out[t_out[-1]]) * h - mass0)) if out else float("nan")
+                em = (ac.energy_metrics(out["E"], E_ref[t_out[-1]]) if out
+                      else {"E_rel_T": float("nan"), "E_up": float("nan")})
                 rows.append({"eps2": a.eps2, "g2": a.g2, "init": a.ic, "N": a.N, "model": name, "seed": sd, "scale": s, "ic": float(e_ic),
-                             "mass_drift": drift, **{f"t{t}": e for t, e in errs.items()}})
+                             "mass_drift": drift, **{f"t{t}": e for t, e in errs.items()}, **em})
                 print(f"{name:10s} seed={sd} x{s:<5} ic={e_ic:.1e} " +
-                      " ".join(f"t={t}:{e:.1e}" for t, e in errs.items()) + f" mass {drift:.1e}  {time.time()-t0:.0f}s",
+                      " ".join(f"t={t}:{e:.1e}" for t, e in errs.items()) + f" mass {drift:.1e} E_err={em['E_rel_T']:.1e} E_up={em['E_up']:.1e}  {time.time()-t0:.0f}s",
                       flush=True)
                 json.dump(rows, open(a.out, "w"), indent=1)
     tl = f"t{t_out[-1]}"

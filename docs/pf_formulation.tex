@@ -143,6 +143,16 @@ Fourier 擬スペクトル法（AC：1024 モード，CH：256 モード）と E
 各モデル・各シードについて倍率 $s$ を掃引し，$t=1$ の誤差が最小の $s$ を採用する．
 最良の $s$ が探索範囲の端なら範囲を広げる．CH では質量のずれ $|\int\phi(1)\,\dd x-\int\phi(0)\,\dd x|$ も記録する．
 
+\paragraph{自由エネルギーの散逸.}
+AC と CH はどちらも自由エネルギーの勾配流なので，厳密解では $E(t)$ は単調に減る．
+各ステップで $E^{n}=E[u_h(t_n)]$ を計算し（$u_x$ は選点の値からスペクトル微分で求める），
+\begin{equation}
+  e_E=\frac{|E^{N_t}-E_{\mathrm{ref}}(1)|}{|E_{\mathrm{ref}}(1)|},\qquad
+  E_{\mathrm{up}}=\frac{\max\big(0,\ \max_n(E^{n+1}-E^{n})\big)}{|E^{0}|}
+\end{equation}
+を記録する．$E_{\mathrm{up}}>0$ は散逸性が壊れたことを意味する．
+確認：厳密な Fourier 基底では，AC で $e_E=2.1\times10^{-5}$，CH で $3.6\times10^{-12}$，どちらも $E_{\mathrm{up}}=0$．
+
 \section{確認結果（Allen--Cahn）}
 \begin{table}[h]
 \centering

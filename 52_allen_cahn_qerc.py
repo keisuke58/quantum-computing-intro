@@ -55,6 +55,26 @@ def feature_mats(feat, x):
     return np.asarray(f(jnp.asarray(x))), np.asarray(fxx(jnp.asarray(x)))
 
 
+def grad_x(u):
+    """spectral x-derivative of samples on the uniform periodic grid over [-1, 1]"""
+    M = len(u); k = np.fft.fftfreq(M, d=2 / M) * 2 * np.pi
+    return np.real(np.fft.ifft(1j * k * np.fft.fft(u)))
+
+
+def energy_ac(u, D):
+    """free energy E = int (D/2 u_x^2 + 5/4 (u^2 - 1)^2) dx; Allen-Cahn is its L2 gradient flow"""
+    h = 2 / len(u)
+    return float(h * np.sum(0.5 * D * grad_x(u) ** 2 + 1.25 * (u**2 - 1) ** 2))
+
+
+def energy_metrics(Es, E_ref_T):
+    """relative error of E at the final time, and the largest increase of E between steps (relative to E(0));
+    a gradient flow must have E non-increasing, so E_up > 0 means the scheme broke dissipation"""
+    Es = np.asarray(Es)
+    return {"E_rel_T": float(abs(Es[-1] - E_ref_T) / abs(E_ref_T)),
+            "E_up": float(max(0.0, np.max(np.diff(Es))) / abs(Es[0]))}
+
+
 def lsq(A, b, ridge=1e-12):
     sc = np.linalg.norm(A, axis=0) + 1e-30
     As = A / sc; G = As.T @ As; G[np.diag_indices_from(G)] += ridge * np.trace(G) / len(G)
@@ -62,10 +82,11 @@ def lsq(A, b, ridge=1e-12):
 
 
 # ---------------- time marching with fixed features ----------------
-def march(Phi, Phixx, x, D, dt, T, t_out, newton=6, tol=1e-10):
+def march(Phi, Phixx, x, D, dt, T, t_out, newton=6, tol=1e-10, efun=None):
     u0 = x**2 * np.cos(np.pi * x)
     c = lsq(Phi, u0); u_prev = None; u = Phi @ c
     err_ic = np.linalg.norm(u - u0) / np.linalg.norm(u0)
+    Es = [efun(u)] if efun else None
     out = {}; n_steps = int(round(T / dt)); want = {int(round(t / dt)): t for t in t_out}
     for n in range(1, n_steps + 1):
         if u_prev is None:                     # backward Euler for the first step
@@ -83,8 +104,12 @@ def march(Phi, Phixx, x, D, dt, T, t_out, newton=6, tol=1e-10):
         u_prev, u = u, uk
         if not np.all(np.isfinite(u)) or np.max(np.abs(u)) > 10:
             return err_ic, None
+        if efun:
+            Es.append(efun(u))
         if n in want:
             out[want[n]] = u.copy()
+    if efun:
+        out["E"] = Es
     return err_ic, out
 
 
@@ -129,6 +154,8 @@ def main():
     x = -1 + 2 * (np.arange(M) + 0.5) / M
     t_out = [0.25, 0.5, 1.0]
     t0 = time.time(); ref = reference(a.D, x, t_out); print(f"reference {time.time()-t0:.0f}s", flush=True)
+    E_ref = {t: energy_ac(ref[t], a.D) for t in t_out}
+    print("reference energy: " + " ".join(f"t={t}:{E_ref[t]:.5f}" for t in t_out), flush=True)
     grid = {
         "QERC-Haar": ([1, 2, 4, 8, 16, 32], lambda sd, s: make_qerc(a.N, sd, s)),
         "tanh-RF": ([4, 8, 16, 32, 64], lambda sd, s: make_tanh(m, sd, s)),
@@ -144,13 +171,15 @@ def main():
             for s in scales:
                 t0 = time.time()
                 Phi, Phixx = feature_mats(ctor(sd, s), x)
-                e_ic, out = march(Phi, Phixx, x, a.D, a.dt, 1.0, t_out)
+                e_ic, out = march(Phi, Phixx, x, a.D, a.dt, 1.0, t_out, efun=lambda u: energy_ac(u, a.D))
                 errs = {t: (float(np.linalg.norm(out[t] - ref[t]) / np.linalg.norm(ref[t])) if out else float("nan"))
                         for t in t_out}
+                em = energy_metrics(out["E"], E_ref[1.0]) if out else {"E_rel_T": float("nan"), "E_up": float("nan")}
                 rows.append({"D": a.D, "N": a.N, "model": name, "seed": sd, "scale": s, "ic": float(e_ic),
-                             **{f"t{t}": e for t, e in errs.items()}})
+                             **{f"t{t}": e for t, e in errs.items()}, **em})
                 print(f"{name:10s} seed={sd} x{s:<5} ic={e_ic:.1e} " +
-                      " ".join(f"t={t}:{e:.1e}" for t, e in errs.items()) + f"  {time.time()-t0:.0f}s", flush=True)
+                      " ".join(f"t={t}:{e:.1e}" for t, e in errs.items()) +
+                      f" E_err={em['E_rel_T']:.1e} E_up={em['E_up']:.1e}  {time.time()-t0:.0f}s", flush=True)
                 json.dump(rows, open(a.out, "w"), indent=1)
     print("\n=== best scale per seed (by t=1 error), geometric mean ===")
     for name in grid:
