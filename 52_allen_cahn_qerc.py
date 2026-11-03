@@ -81,6 +81,22 @@ def lsq(A, b, ridge=1e-12):
     return np.linalg.solve(G, As.T @ b) / sc
 
 
+@jax.jit
+def lsq_j(A, b, ridge=1e-12):
+    """same as lsq, on the JAX device (GPU when available); float64"""
+    sc = jnp.linalg.norm(A, axis=0) + 1e-30
+    As = A / sc; G = As.T @ As
+    G = G + ridge * jnp.trace(G) / G.shape[0] * jnp.eye(G.shape[0])
+    return jnp.linalg.solve(G, As.T @ b) / sc
+
+
+@jax.jit
+def _ac_newton_iter(Phi, Phixx, uk, a, rhs0, D):
+    A = (a + 15 * uk**2 - 5)[:, None] * Phi - D * Phixx
+    un = Phi @ lsq_j(A, rhs0 + 10 * uk**3)
+    return un, jnp.max(jnp.abs(un - uk))
+
+
 # ---------------- time marching with fixed features ----------------
 def march(Phi, Phixx, x, D, dt, T, t_out, newton=6, tol=1e-10, efun=None):
     u0 = x**2 * np.cos(np.pi * x)
@@ -88,26 +104,26 @@ def march(Phi, Phixx, x, D, dt, T, t_out, newton=6, tol=1e-10, efun=None):
     err_ic = np.linalg.norm(u - u0) / np.linalg.norm(u0)
     Es = [efun(u)] if efun else None
     out = {}; n_steps = int(round(T / dt)); want = {int(round(t / dt)): t for t in t_out}
+    Pj, Pxxj = jnp.asarray(Phi), jnp.asarray(Phixx)          # the time loop runs on the JAX device
+    u = jnp.asarray(u)
     for n in range(1, n_steps + 1):
         if u_prev is None:                     # backward Euler for the first step
             a, rhs0 = 1.0 / dt, u / dt
         else:                                  # BDF2
             a, rhs0 = 1.5 / dt, (4 * u - u_prev) / (2 * dt)
-        uk = u.copy()
+        uk = u
         for _ in range(newton):
-            A = (a + 15 * uk**2 - 5)[:, None] * Phi - D * Phixx
-            ck = lsq(A, rhs0 + 10 * uk**3)
-            un = Phi @ ck
-            d = np.max(np.abs(un - uk)); uk = un
-            if d < tol:
+            uk, d = _ac_newton_iter(Pj, Pxxj, uk, a, rhs0, D)
+            if float(d) < tol:
                 break
         u_prev, u = u, uk
-        if not np.all(np.isfinite(u)) or np.max(np.abs(u)) > 10:
+        un = np.asarray(u)
+        if not np.all(np.isfinite(un)) or np.max(np.abs(un)) > 10:
             return err_ic, None
         if efun:
-            Es.append(efun(u))
+            Es.append(efun(un))
         if n in want:
-            out[want[n]] = u.copy()
+            out[want[n]] = un.copy()
     if efun:
         out["E"] = Es
     return err_ic, out
@@ -157,9 +173,9 @@ def main():
     E_ref = {t: energy_ac(ref[t], a.D) for t in t_out}
     print("reference energy: " + " ".join(f"t={t}:{E_ref[t]:.5f}" for t in t_out), flush=True)
     grid = {
-        "QERC-Haar": ([1, 2, 4, 8, 16, 32], lambda sd, s: make_qerc(a.N, sd, s)),
-        "tanh-RF": ([4, 8, 16, 32, 64], lambda sd, s: make_tanh(m, sd, s)),
-        "Fourier": ([4, 8, 16, 32, 64], lambda sd, s: make_fourier(m, sd, s)),
+        "QERC-Haar": ([2, 4, 8, 16, 32], lambda sd, s: make_qerc(a.N, sd, s)),
+        "tanh-RF": ([8, 16, 32, 64], lambda sd, s: make_tanh(m, sd, s)),
+        "Fourier": ([8, 16, 32, 64], lambda sd, s: make_fourier(m, sd, s)),
     }
     grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
     if a.scales:

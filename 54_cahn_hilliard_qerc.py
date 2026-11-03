@@ -38,37 +38,44 @@ def energy_ch(p, eps2):
     return float(h * np.sum(0.5 * eps2 * ac.grad_x(p) ** 2 + 0.25 * G2 * (p**2 - 1) ** 2))
 
 
+@ac.jax.jit
+def _ch_newton_iter(Phi, Phixx, pk, c0, rhs0, dt, eps2, g2):
+    jnp = ac.jnp
+    A = jnp.block([[c0 * Phi, -dt * Phixx],
+                   [-(g2 * (3 * pk**2 - 1))[:, None] * Phi + eps2 * Phixx, Phi]])
+    b = jnp.concatenate([rhs0, -2 * g2 * pk**3])
+    pn = Phi @ ac.lsq_j(A, b)[:Phi.shape[1]]
+    return pn, jnp.max(jnp.abs(pn - pk))
+
+
 def march(Phi, Phixx, x, eps2, dt, T, t_out, newton=8, tol=1e-10, efun=None):
-    m = Phi.shape[1]; Z = np.zeros_like(Phi)
     u0 = phi0(x)
     a = ac.lsq(Phi, u0); p = Phi @ a; p_prev = None
     err_ic = np.linalg.norm(p - u0) / np.linalg.norm(u0)
     Es = [efun(p)] if efun else None
     out = {}; want = {int(round(t / dt)): t for t in t_out}
+    Pj, Pxxj = ac.jnp.asarray(Phi), ac.jnp.asarray(Phixx)      # the time loop runs on the JAX device
+    p = ac.jnp.asarray(p)
     for n in range(1, int(round(T / dt)) + 1):
         if p_prev is None:
             c0, rhs0 = 1.0, p
         else:
             c0, rhs0 = 1.5, (4 * p - p_prev) / 2
-        pk = p.copy()
+        pk = p
         for _ in range(newton):
             # eq 1 (times dt): c0 phi - dt mu_xx = rhs0
             # eq 2: mu - g2 (3 pk^2 - 1) phi + eps2 phi_xx = -2 g2 pk^3
-            A = np.block([[c0 * Phi, -dt * Phixx],
-                          [-(G2 * (3 * pk**2 - 1))[:, None] * Phi + eps2 * Phixx, Phi]])
-            b = np.concatenate([rhs0, -2 * G2 * pk**3])
-            w = ac.lsq(A, b)
-            pn = Phi @ w[:m]
-            d = np.max(np.abs(pn - pk)); pk = pn
-            if d < tol:
+            pk, d = _ch_newton_iter(Pj, Pxxj, pk, c0, rhs0, dt, eps2, G2)
+            if float(d) < tol:
                 break
         p_prev, p = p, pk
-        if not np.all(np.isfinite(p)) or np.max(np.abs(p)) > 10:
+        pn = np.asarray(p)
+        if not np.all(np.isfinite(pn)) or np.max(np.abs(pn)) > 10:
             return err_ic, None
         if efun:
-            Es.append(efun(p))
+            Es.append(efun(pn))
         if n in want:
-            out[want[n]] = p.copy()
+            out[want[n]] = pn.copy()
     if efun:
         out["E"] = Es
     return err_ic, out
@@ -144,9 +151,9 @@ def main():
                 print(f"Fourier basis K={K} dt={dt}: ic {e:.1e} " + " ".join(f"t={t}:{rel(out[t], t):.1e}" for t in t_out))
         return
     grid = {
-        "QERC-Haar": ([1, 2, 4, 8, 16, 32], lambda sd, s: ac.make_qerc(a.N, sd, s)),
-        "tanh-RF": ([2, 4, 8, 16, 32, 64], lambda sd, s: ac.make_tanh(m, sd, s)),
-        "Fourier": ([2, 4, 8, 16, 32, 64], lambda sd, s: ac.make_fourier(m, sd, s)),
+        "QERC-Haar": ([1, 2, 4, 8, 16], lambda sd, s: ac.make_qerc(a.N, sd, s)),
+        "tanh-RF": ([2, 4, 8, 16, 32], lambda sd, s: ac.make_tanh(m, sd, s)),
+        "Fourier": ([2, 4, 8, 16, 32], lambda sd, s: ac.make_fourier(m, sd, s)),
     }
     grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
     if a.scales:

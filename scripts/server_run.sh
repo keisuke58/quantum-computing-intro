@@ -57,7 +57,7 @@ run_job() {
     edge_periodic)
       python 34_tsv_periodic.py --L 3 --models Fourier --scales 32,64,128 --seeds 5 --out results/server/tsv_periodic_L3_fourier_wide.json ;;
     pf_ac)
-      python 52_allen_cahn_qerc.py --D 1e-4 --N ${PFN:-8} --seeds 5 --out results/server/allen_cahn_N${PFN:-8}.json ;;
+      python 52_allen_cahn_qerc.py --D 1e-4 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --out results/server/allen_cahn_N${PFN:-8}.json ;;
     pf_ch)
       python 54_cahn_hilliard_qerc.py --eps2 0.02 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --out results/server/cahn_hilliard_N${PFN:-8}.json ;;
     pf_ch_wz)
