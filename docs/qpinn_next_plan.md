@@ -672,4 +672,4 @@ copaam の 3D の結果（N = 10，現時点の倍率範囲）: Abaqus 参照で
 - 実装：`52_allen_cahn_qerc.py`（Raissi 2019 の式 12），`54_cahn_hilliard_qerc.py`（混合形，ε² = 0.02），定式化は `docs/pf_formulation.pdf`，説明図 `figs/pf_explain.png`
 - 暫定（AC，N = 8，シード 0，t = 1）：量子 1.4e-2（倍率が範囲の端），tanh 1.2e-3，Fourier 3.8e-3．元論文の古典 PINN は 7e-3
 - 5 シードの本計算は copaam のジョブ 11（AC）・12（CH）で実行中
-- **報告は 11/30 の次の打ち合わせ**（11/30 では出さない）．スライドは https://claude.ai/artifact/QLRPVvVA8QMY5goCWNWded
+- **11/30 では「今やっています」と一言だけ．きちんとした報告はその次の打ち合わせ**．スライドは https://claude.ai/artifact/QLRPVvVA8QMY5goCWNWded
