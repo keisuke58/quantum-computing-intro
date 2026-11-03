@@ -62,6 +62,8 @@ run_job() {
       python 54_cahn_hilliard_qerc.py --eps2 0.02 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --out results/server/cahn_hilliard_N${PFN:-8}.json ;;
     pf_ch_wz)
       python 54_cahn_hilliard_qerc.py --eps2 1e-6 --g2 0.01 --ic cos2 --ref_modes 1024 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --out results/server/cahn_hilliard_wz_N${PFN:-8}.json ;;
+    pf_ac_vqpinn)
+      python 56_ac_vqpinn.py --models VQPINN,PINN-small,PINN --N 6 --L 6 --steps 20000 --seeds 3 --out results/server/ac_vqpinn.json ;;
     bigN)
       for N in 10 12; do
         python 30_qerc_tsv_single.py --N $N --seeds 3 --out results/server/tsv_single_N${N}.json
