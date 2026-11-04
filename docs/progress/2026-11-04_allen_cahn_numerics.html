@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:#FFFFFF}
+.s{width:1920px;height:1080px;box-sizing:border-box;padding:56px 80px 48px;font-family:'IPAGothic','IPAPGothic',sans-serif;color:#1E2433;display:flex;flex-direction:column;gap:16px;position:relative}
+h1{font-size:46px;font-weight:700;color:#1F3A68;margin:0;border-bottom:4px solid #1F3A68;padding-bottom:12px}
+.tag{font-size:26px;color:#5A6273;margin-left:16px;font-weight:400}
+img{width:1500px;align-self:center}
+ul{margin:0;padding-left:34px;font-size:27px;line-height:1.5}
+.eq{font-size:32px;text-align:center;background:#F2F4F8;padding:14px;border-radius:8px}
+.foot{position:absolute;left:80px;right:80px;bottom:26px;font-size:20px;color:#5A6273;display:flex;justify-content:space-between}
+</style></head><body><div class="s">
+<h1>進捗：Allen–Cahn 方程式を数値計算で解いた<span class="tag">2026-11-04</span></h1>
+<div class="eq"><i>u</i><sub>t</sub> = 10<sup>−4</sup> <i>u</i><sub>xx</sub> + 5<i>u</i> − 5<i>u</i><sup>3</sup>，　<i>x</i> ∈ [−1, 1]（周期境界），　<i>u</i>(0, <i>x</i>) = <i>x</i><sup>2</sup> cos π<i>x</i>，　<i>t</i> ∈ [0, 1]</div>
+<img src="../../figs/ac_numerics.png">
+<ul>
+<li>解き方：Fourier スペクトル法（1024 モード）＋ 指数時間差分法 ETDRK4（Δ<i>t</i> = 10<sup>−5</sup>）</li>
+<li>確認：Δ<i>t</i> を 2 倍にしても差 1.8 × 10<sup>−11</sup>，モード数を半分にしても差 1.5 × 10<sup>−6</sup>．エネルギーは毎ステップ減少</li>
+<li>界面は時間とともに鋭くなり，<i>t</i> = 1 で幅 約 0.023（平衡の幅 0.013 に近づいていく）</li>
+</ul>
+<div class="foot"><span>例題は Raissi ら，J. Comput. Phys. 378 (2019) の式 (12)．次はこの解を参照解として，PINN 系の手法と比べる</span><span>西岡 佳祐（村松研究室）</span></div>
+</div></body></html>
