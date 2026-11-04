@@ -15,30 +15,28 @@
 \renewcommand{\proofname}{証明}
 
 \title{量子リザバー PINN の公平な評価\\
-\large ―固体力学と Phase-field 方程式―}
+\large ―Phase-field 方程式への適用―}
 \author{西岡 佳祐\\{慶應義塾大学 理工学研究科}}
 \date{草稿，\today}
 
 \begin{document}
 \makeatletter\twocolumn[\@maketitle\begin{center}\begin{minipage}{0.9\textwidth}\small\textbf{概要}\quad{}量子物理情報付きニューラルネットワーク（QPINN）は，パラメータが少なく精度もそこそこと報告されることが多いが，
-同じ規模で同じだけ調整した古典モデルと比べた例は少ない．本研究は，線形弾性と Phase-field（PF）方程式を対象に，
-対照をそろえてこの問いを調べる．
-(1) 変分 QPINN は表現力ではなく最適化で詰まる．Allen--Cahn 方程式では 6 量子ビットの QPINN の誤差は 0.76 だった．
-(2) 回路を固定し出力の係数だけを最小二乗で解く量子リザバー PINN（QERC-PINN）はこの問題を避け，Kirsch 問題で
-$5\times10^{-5}$ に達する．
-(3) リザバーは表現力を増やせないことを命題として示す．特徴量はエンコーディングで決まる関数空間 $\mathcal F_\rho$ の
-部分空間を張るだけで，$\mathcal F_\rho$ は 1 量子ビットの関数の積で張られ，古典でも 1 特徴量あたり $O(N)$ の計算で作れる．
-実機での読み出しには 1 点あたり $O(N^2 2^N/\varepsilon^2)$ ショットが要り，古典で計算するより高くつく．
-(4) TSV（2 次元，軸対称，3 次元）と Allen--Cahn，Cahn--Hilliard で比べると，学習なしの最小二乗ソルバーは
-公表されている適応 PINN より正確だが，量子リザバーは古典の乱数特徴量に負け，鋭い界面では量子ビットを増やしても
-改善しない．\end{minipage}\end{center}\vspace{1em}]\makeatother
+同じ規模で同じだけ調整した古典モデルと比べた例は少ない．本研究は，界面が鋭く PINN が苦手とされる Phase-field（PF）方程式
+（Allen--Cahn，Cahn--Hilliard）を対象に，対照をそろえてこの問いを調べる．
+(1) 変分 QPINN は最適化で詰まり，Allen--Cahn 方程式では 6 量子ビットで誤差 0.76 と解けない．
+(2) 回路を固定し出力の係数だけを最小二乗で解く量子リザバー PINN は，学習なしで公表されている適応 PINN より正確になる．
+(3) しかしリザバーは表現力を増やせないことを命題として示す．特徴量はエンコーディングで決まる関数空間 $\mathcal F_\rho$ の
+部分空間を張るだけで，$\mathcal F_\rho$ は古典でも 1 特徴量あたり $O(N)$ の計算で作れ，実機での読み出しは古典の計算より高くつく．
+(4) 数値でも，量子リザバーは同じ解き方の古典の乱数特徴量に負け，鋭い界面では量子ビットを 8 から 10 に増やしても
+誤差 $10^{-2}$ から改善しない（古典は $5\times10^{-6}$）．\end{minipage}\end{center}\vspace{1em}]\makeatother
 
 \section{はじめに}
 PINN \cite{raissi} は PDE の残差をネットワークのパラメータについて最小化して解を求める．量子版の QPINN は，
 少ないパラメータで大きな関数空間を表せることを利点とするが，その主張は比べる古典モデルに強く依存する．
 本研究では「量子モデルのどの部分が役に立っているのか，同じ構造の古典モデルで再現できるのか」を問う．
-対象は線形弾性（円孔板，半導体の貫通電極 TSV）と，界面が鋭く PINN が苦手とされる PF 方程式
-（Allen--Cahn，Cahn--Hilliard）\cite{wight} である．
+対象は，材料組織の相分離を表す Phase-field（PF）方程式（Allen--Cahn，Cahn--Hilliard）である．
+PF の解は薄い界面で急に変わるため，素の PINN では Allen--Cahn の誤差が 0.99 とほぼ解けず，
+適応サンプリングなどの工夫が要る \cite{wight}．
 
 \paragraph{関連研究.} 古典では，固定の乱数特徴量で PDE の残差を最小二乗で解く PIELM \cite{pielm} や
 乱数特徴量法 \cite{rfm}，それを時間発展に広げた方法 \cite{zhou} が高い精度を示している．
@@ -69,6 +67,7 @@ $u_t=Du_{xx}+5u-5u^3$ では各反復で
 \end{aligned}
 \end{equation}
 を最小二乗で解く．$\Phi_{ik}=\varphi_k(x_i)$，$\Phi''_{ik}=\varphi_k''(x_i)$ は最初に 1 回だけ作る．
+特徴量の入力を $\bm z(x)=(\cos\pi x,\sin\pi x)$ にすると，周期境界条件は自動的に満たされる．
 Cahn--Hilliard は化学ポテンシャル $\mu$ も同じ特徴量で展開した混合形で解き，2 階より高い微分を使わない．
 
 \subsection{比べる特徴量}
@@ -83,17 +82,12 @@ Cahn--Hilliard は化学ポテンシャル $\mu$ も同じ特徴量で展開し�
 を特徴量にする．
 \paragraph{古典の乱数特徴量.} $\varphi_k=\tanh(\bm w_k\cdot\bm z+b_k)$，$\varphi_k=\cos(\bm w_k\cdot\bm z+b_k)$
 （$\bm w_k,b_k$ は乱数で固定）．
-\paragraph{古典の対照.} 同じ $|\psi(\bm x)\rangle$ を使うテンソル積射影 $\mathrm{Re}\,\langle\psi|R_k|\psi\rangle$
-（$R_k$ はランダムなエルミート行列）と，積の乱数特徴量（系 1）．
+\paragraph{古典の対照.} 同じ角度 $\bm\theta(\bm x)$ を使う積の乱数特徴量（系 1）．
 \paragraph{学習あり.} 変分 QPINN と古典 PINN を，同じ残差の損失で Adam により学習する．
 
 どの特徴量も数は $m=2^N$ にそろえ，入力の倍率をシードごとに掃引して最良を採る．最良の倍率が探索範囲の端なら範囲を広げる．
+この調整は結論を大きく変える（固体力学の例では，調整しない古典の対照は量子と同等に見えたが，調整すると 20 倍良くなった）．
 
-\begin{figure*}[t]
-\centering\includegraphics[width=0.58\textwidth]{tsv3d_abaqus.pdf}
-\caption{TSV の単位セル（直径 5\,\textmu m，高さ 50\,\textmu m，ピッチ 15\,\textmu m，$\Delta T=-250$\,K）の Abaqus 参照解．
-von Mises 応力は上面近くで大きく，2 次元の平面ひずみでは表せない．}
-\end{figure*}
 
 \section{理論：リザバーが加えられるもの}
 符号化した状態を $\rho(\bm x)=|\psi(\bm x)\rangle\langle\psi(\bm x)|=\bigotimes_l\rho_l(\bm x)$ と書き，
@@ -144,70 +138,15 @@ $M$ 点・$m=2^N$ 個の特徴量では，量子の読み出しは $O(MN^2\,2^N/
 $O(MN\,2^N)$ 回の演算で，両者の比は $N/\varepsilon^2\ge1$ である．
 \end{corollary}
 
-数値でも確かめた．TSV 単体（$N=8$，3 シード）で，積の乱数特徴量は $3.5\times10^{-3}$，Haar リザバーは $3.9\times10^{-3}$ で，
-古典の $O(N)$ の特徴量が同等以上だった．
+% AC-PRODUCT: Allen-Cahn N=8 product-RF vs QERC (results/allen_cahn_N8_product.json)
 
 \section{結果}
-\subsection{固体力学}
+\subsection{Phase-field 方程式}
 \begin{figure*}[t]
 \centering\includegraphics[width=0.6\textwidth]{pf_explain.pdf}
 \caption{Phase-field 法の基本（計算した参照解から作図）．(a) 二重井戸の自由エネルギー，(b) Allen--Cahn の $u(t,x)$，
 (c) $t=1$ の界面（幅 約 0.04），(d) Cahn--Hilliard は相の量（平均）を保ったまま分離する．}
 \end{figure*}
-
-\begin{table*}[t]
-\centering\small
-\caption{変位の相対 $L_2$ 誤差（シードごとに倍率を調整した幾何平均）}
-\begin{tabular}{lcccc}
-\toprule
-問題 & 量子リザバー & テンソル積射影 & tanh & Fourier \\
-\midrule
-Kirsch 円孔板（$N=10$） & $4.6\times10^{-5}$ & -- & $5.9\times10^{-5}$ & $\bm{1.1\times10^{-6}}$ \\
-TSV 単体（$N=8$）     & $4.6\times10^{-3}$ & $4.4\times10^{-3}$ & $4.8\times10^{-2}$ & $4.3\times10^{-2}$ \\
-TSV 単体（$N=12$）    & $5.6\times10^{-5}$ & -- & $5.7\times10^{-5}$ & $\bm{8.3\times10^{-6}}$ \\
-\bottomrule
-\end{tabular}
-\end{table*}
-参照解は解析解，自作の有限要素法，Abaqus（CAX8, C3D10）で相互に $10^{-3}$ 以下で一致することを確認した．
-
-\begin{table}[t]
-\centering\small\setlength{\tabcolsep}{3pt}
-\caption{参照解の相互確認（$\bm u$ は相対 $L_2$，von Mises は最大値で規格化した平均絶対誤差）}
-\resizebox{\columnwidth}{!}{\begin{tabular}{lccc}
-\toprule
-比較 & $\bm u$ & 中央面 & 上面近く\\
-\midrule
-軸対称・固定：自作 FE と Abaqus & 2.2e-4 & 3.2e-4 & 6.5e-4\\
-軸対称・上面自由：同上 & 8.8e-5 & 3.2e-4 & 7.7e-4\\
-3D 中央面 と 2D 平面ひずみ & 2.4e-4 & 3.1e-4 & --\\
-\bottomrule
-\end{tabular}}
-\end{table}
-ビア中心の応力も平面ひずみの Lamé 解と一致した（$\sigma_{rr}=\sigma_{\theta\theta}=642$\,MPa，$\sigma_{zz}=917$\,MPa）．
-入力の倍率の調整は結論を大きく変える．調整しない古典の対照は 2 シードでは量子と同等に見えたが，調整すると 20 倍良くなった．
-また $N=12$ の Fourier 特徴量は，倍率の範囲を広げると $3.2\times10^{-4}$ から $8.3\times10^{-6}$ に改善した．
-量子リザバーは同じテンソル積構造の古典の対照と同等で，特徴量が増えると Fourier 特徴量が最良になる．
-TSV の軸対称・3 次元セルでも Fourier 特徴量が最も正確だった．
-
-
-\begin{table}[t]
-\centering\small
-\caption{TSV 軸対称セル（$N=8$，5 シード）：$\bm u$ の誤差と上面近くの von Mises の誤差}
-\begin{tabular}{lcccc}
-\toprule
- & \multicolumn{2}{c}{上下固定} & \multicolumn{2}{c}{上面自由}\\
-特徴量 & $\bm u$ & 上面 & $\bm u$ & 上面\\
-\midrule
-量子 & 2.7e-2 & 9.8e-3 & 9.9e-3 & 2.0e-2\\
-2 層 NN & 2.7e-2 & 8.8e-3 & 8.1e-3 & 2.1e-2\\
-tanh & 1.5e-2 & 8.0e-3 & 3.2e-3 & 1.5e-2\\
-Fourier & \textbf{6.0e-3} & \textbf{4.7e-3} & \textbf{1.5e-3} & \textbf{6.5e-3}\\
-\bottomrule
-\end{tabular}
-\end{table}
-上面近く（デバイスを置く領域）の誤差は中央面の 3〜15 倍で，どのモデルでも難しい．量子リザバーは乱数の 2 層ネットワークと同程度である．
-
-\subsection{Phase-field 方程式}
 \begin{figure}[t]
 \centering\includegraphics[width=\columnwidth]{pf_compare.pdf}
 \caption{Phase-field 方程式での各手法の誤差（対数軸，低いほど良い）．破線は公表されている適応 PINN．}
@@ -225,7 +164,7 @@ Cahn--Hilliard：
   &u(0,x)=-\cos2\pi x.
 \end{aligned}
 \end{equation}
-参照解は Fourier スペクトル法と ETDRK4 で求めた．
+参照解は Fourier スペクトル法と ETDRK4（$\Delta t=10^{-5}$）で求めた．厳密な Fourier 基底で今回の時間積分（BDF2，$\Delta t=10^{-3}$）を行うと，参照解と Allen--Cahn で $4.9\times10^{-6}$，滑らかな Cahn--Hilliard で $6\times10^{-10}$ まで一致し，時間刻みの誤差は比較に影響しない．
 
 \begin{table}[t]
 \centering\small\setlength{\tabcolsep}{3pt}
@@ -274,7 +213,7 @@ $0.3\sin\pi x+0.2\cos3\pi x$ & 4.3e-2 & 2.3e-2 & 5.0e-3\\
 （表\ref{tab:shot}）が，$10^7$ ショットでも 1.4\% で，ノイズなしの値の 70 倍である．
 \begin{table}[t]
 \centering\small
-\caption{Kirsch 円孔板（$N=10$）：1 回路あたりのショット数と誤差}\label{tab:shot}
+\caption{ショット数と誤差（Kirsch 円孔板の線形弾性，$N=10$）}\label{tab:shot}
 \begin{tabular}{lcc}
 \toprule
 ショット数 & 強形式 & エネルギー形\\
