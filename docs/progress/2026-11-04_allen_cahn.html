@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:#FFFFFF}
+.s{width:1920px;height:1080px;box-sizing:border-box;padding:56px 80px 48px;font-family:'IPAGothic','IPAPGothic',sans-serif;color:#1E2433;display:flex;flex-direction:column;gap:18px;position:relative}
+h1{font-size:46px;font-weight:700;color:#1F3A68;margin:0;border-bottom:4px solid #1F3A68;padding-bottom:12px}
+.tag{font-size:26px;color:#5A6273;margin-left:16px;font-weight:400}
+img{width:1560px;align-self:center}
+ul{margin:0;padding-left:34px;font-size:27px;line-height:1.45}
+b{color:#0072B2}
+.foot{position:absolute;left:80px;right:80px;bottom:26px;font-size:20px;color:#5A6273;display:flex;justify-content:space-between}
+</style></head><body><div class="s">
+<h1>進捗：量子リザバー PINN で Allen–Cahn 方程式が解けた<span class="tag">2026-11-04</span></h1>
+<img src="../../figs/qerc_main.png">
+<ul>
+<li><b>学習なし</b>（最小二乗だけ）で Raissi らの例題を解いた．鋭い界面まで参照解と重なり，誤差は界面に集中（c）</li>
+<li>t = 1 の誤差 <b>1.0 × 10⁻²</b>：学習ありの PINN（0.13），変分 QPINN（0.76），公表の適応 PINN（2.3 × 10⁻²）より小さい（d）</li>
+<li>次：Cahn–Hilliard（計算済み，整理中），2 次元の縮む円，データありとの比較</li>
+</ul>
+<div class="foot"><span><i>u</i><sub>t</sub> − 10<sup>−4</sup><i>u</i><sub>xx</sub> + 5<i>u</i><sup>3</sup> − 5<i>u</i> = 0，<i>x</i> ∈ [−1, 1]，周期境界，<i>u</i>(0, <i>x</i>) = <i>x</i><sup>2</sup> cos π<i>x</i>．量子ビット 8（特徴量 256 個），5 シードの幾何平均</span><span>西岡 佳祐（村松研究室）</span></div>
+</div></body></html>
