@@ -131,8 +131,9 @@ def main():
         t_data = [round(0.1 * k, 6) for k in range(1, 11)]
         xd1 = np.sort(np.random.default_rng(7).uniform(-1, 1, a.n_data // 10))
         udd = ac.reference(D, xd1, t_data)
-        xd = jnp.asarray(np.tile(xd1, len(t_data))); td = jnp.asarray(np.repeat(t_data, len(xd1)))
-        ud = jnp.asarray(np.concatenate([udd[t] for t in t_data]))
+        # (n_t, n_x) grid: each time is evaluated like the IC term (t fixed, vmap over x only); vmapping x and t
+        # together made the data term 4-6x slower than the PDE term on GPU (VQPINN only, copaam job 19)
+        xd = jnp.asarray(xd1); ud = jnp.asarray(np.stack([udd[t] for t in t_data]))
     rows = []
     for name in a.models.split(","):
         for sd in range(a.seeds):
@@ -161,11 +162,12 @@ def main():
                 e0 = jax.vmap(uf, (None, 0, None))(p, x0, 0.0) - u0
                 L = jnp.mean(r**2) + a.w_ic * jnp.mean(e0**2)
                 if dat:
-                    xd, td, ud = dat
-                    L = L + a.w_data * jnp.mean((jax.vmap(uf, (None, 0, 0))(p, xd, td) - ud) ** 2)
+                    xd, ud = dat
+                    ed = jnp.stack([jax.vmap(uf, (None, 0, None))(p, xd, t) for t in t_data]) - ud
+                    L = L + a.w_data * jnp.mean(ed**2)
                 return L
 
-            args = (xc, tc, x0, u0) + ((xd, td, ud) if a.n_data else ())
+            args = (xc, tc, x0, u0) + ((xd, ud) if a.n_data else ())
             if a.bench:     # time one step of the loss gradient with and without the data term, then stop
                 for lab, ar in [("no data", args[:4]), ("with data", args)]:
                     vg = jax.jit(jax.value_and_grad(loss)); jax.block_until_ready(vg(p, *ar))
