@@ -38,15 +38,32 @@ def main():
              for s in sorted({r["seed"] for r in rows})]
     q_gm = float(np.exp(np.mean(np.log(q_all))))
 
-    fig, (a, b) = plt.subplots(1, 2, figsize=(11.5, 4.2), gridspec_kw={"width_ratios": [1.15, 1], "wspace": 0.32})
+    fig = plt.figure(figsize=(14, 5.6))
+    gs = fig.add_gridspec(2, 3, width_ratios=[1.25, 0.7, 1.3], height_ratios=[3, 1.25], wspace=0.34, hspace=0.42)
+    a = fig.add_subplot(gs[0, 0]); z = fig.add_subplot(gs[0, 1]); e = fig.add_subplot(gs[1, 0:2]); b = fig.add_subplot(gs[:, 2])
     shades = ["#F3C892", "#E69F00", "#A35200"]   # reference: one warm hue, light -> dark with time
+    dash = (0, (4, 2.5))
     for t, c in zip(ts, shades):
-        a.plot(x, ref[t], color=c, lw=3.2, label=f"参照解 t = {t:g}")
-        a.plot(x, out[t], color=Q, lw=1.3, ls=(0, (4, 2.5)))
-    a.plot([], [], color=Q, lw=1.3, ls=(0, (4, 2.5)), label="量子リザバー PINN")
-    a.set_xlabel("位置 $x$"); a.set_ylabel("$u(t,x)$")
+        a.plot(x, ref[t], color=c, lw=3.2)
+        a.plot(x, out[t], color=Q, lw=1.3, ls=dash)
+    a.set_ylabel("$u(t,x)$"); a.set_xlabel("位置 $x$", labelpad=1)
     a.set_title("(a) 量子リザバー PINN の解（学習なし，N = 8）", loc="left")
-    a.legend(frameon=False, fontsize=8.5, loc="upper center", bbox_to_anchor=(0.5, -0.17), ncol=4, handlelength=1.6, columnspacing=1.0)
+    a.axvspan(0.47, 0.53, color="#5A6273", alpha=0.12, lw=0)
+    # (b) zoom on the interface at t = 1
+    w = (x > 0.47) & (x < 0.53)
+    for t, c in zip(ts, shades):
+        z.plot(x[w], ref[t][w], color=c, lw=3.2, label=f"参照解 t = {t:g}")
+        z.plot(x[w], out[t][w], color=Q, lw=1.3, ls=dash)
+    z.plot([], [], color=Q, lw=1.3, ls=dash, label="量子リザバー PINN")
+    z.set_xlim(0.47, 0.53); z.set_xticks([0.48, 0.50, 0.52]); z.set_xlabel("位置 $x$", labelpad=1)
+    z.set_title("(b) 界面の拡大", loc="left")
+    z.legend(frameon=False, fontsize=7.5, loc="lower left", handlelength=1.5)
+    # (c) pointwise error
+    for t, c in zip(ts, shades):
+        e.semilogy(x, np.abs(out[t] - ref[t]) + 1e-12, color=c, lw=0.9)
+    e.set_ylim(1e-7, 1); e.set_xlim(-1, 1); e.set_xlabel("位置 $x$"); e.set_ylabel("$|u-u_{\\rm ref}|$")
+    e.set_title("(c) 各点の誤差（界面 $x\\approx\\pm0.5$ に集中）", loc="left", fontsize=10)
+    e.grid(True, which="major", color="#eeeeee", lw=0.5)
 
     labels = ["量子リザバー\nPINN\n（学習なし）", "適応 PINN\n（公表値）", "PINN\n（学習）", "変分\nQPINN\n（学習）", "素の PINN\n（公表値）"]
     vals = [q_gm, 2.33e-2, gm("PINN"), gm("VQPINN"), 0.99]
@@ -56,9 +73,9 @@ def main():
         b.text(i, v * 1.3, f"{v:.1e}" if v < 0.1 else f"{v:.2f}", ha="center", va="bottom", fontsize=9,
                color=INK, fontweight="bold" if i == 0 else "normal")
     b.set_yscale("log"); b.set_ylim(3e-3, 4)
-    b.set_xticks(range(5)); b.set_xticklabels(labels, fontsize=8.5)
+    b.set_xticks(range(5)); b.set_xticklabels(labels, fontsize=8)
     b.set_ylabel("t = 1 の相対 $L_2$ 誤差（低いほど良い）")
-    b.set_title("(b) 学習ありの PINN との比較", loc="left")
+    b.set_title("(d) 学習ありの PINN との比較", loc="left")
     b.grid(True, axis="y", color="#e5e5e5", lw=0.6); b.set_axisbelow(True)
     fig.savefig(os.path.join(H, "figs", "qerc_main.png"), dpi=200, bbox_inches="tight", facecolor="white")
     fig.savefig(os.path.join(H, "figs", "qerc_main.pdf"), bbox_inches="tight")
