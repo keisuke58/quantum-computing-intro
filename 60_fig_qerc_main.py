@@ -39,11 +39,11 @@ def main():
     q_gm = float(np.exp(np.mean(np.log(q_all))))
 
     fig, (a, b) = plt.subplots(1, 2, figsize=(11.5, 4.2), gridspec_kw={"width_ratios": [1.15, 1], "wspace": 0.32})
-    shades = ["#B9C3D3", "#6B7A93", INK]
+    shades = ["#F3C892", "#E69F00", "#A35200"]   # reference: one warm hue, light -> dark with time
     for t, c in zip(ts, shades):
-        a.plot(x, ref[t], color=c, lw=2.6, label=f"参照解 t = {t:g}")
-        a.plot(x, out[t], color=Q, lw=1.4, ls="--")
-    a.plot([], [], color=Q, lw=1.4, ls="--", label="量子リザバー PINN")
+        a.plot(x, ref[t], color=c, lw=3.2, label=f"参照解 t = {t:g}")
+        a.plot(x, out[t], color=Q, lw=1.3, ls=(0, (4, 2.5)))
+    a.plot([], [], color=Q, lw=1.3, ls=(0, (4, 2.5)), label="量子リザバー PINN")
     a.set_xlabel("位置 $x$"); a.set_ylabel("$u(t,x)$")
     a.set_title("(a) 量子リザバー PINN の解（学習なし，N = 8）", loc="left")
     a.legend(frameon=False, fontsize=8.5, loc="upper center", bbox_to_anchor=(0.5, -0.17), ncol=4, handlelength=1.6, columnspacing=1.0)
