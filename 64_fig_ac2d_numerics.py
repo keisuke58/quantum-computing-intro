@@ -6,6 +6,7 @@ for a progress slide: (a) u at t = 0, (b) u at t = T with the u = 0 contours ove
   python 64_fig_ac2d_numerics.py     -> figs/ac2d_numerics.png / .pdf
 """
 import os, importlib.util, json
+from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -16,17 +17,29 @@ ac2 = importlib.util.module_from_spec(spec); spec.loader.exec_module(ac2)
 plt.rcParams.update({"font.family": ["IPAGothic", "DejaVu Sans"], "font.size": 11, "mathtext.fontset": "cm",
                      "axes.spines.top": False, "axes.spines.right": False})
 T = 20.0
+N_GRID = 128
+TS = [round(0.5 * k, 6) for k in range(1, 41)]
+
+
+def _run(job):
+    modes, dt, ts = job
+    return ac2.reference(N_GRID, ts, n_modes=modes, dt=dt)
 
 
 def main():
     n = 128; xs = -1 + 2 * np.arange(n) / n; X, Y = np.meshgrid(xs, xs); h = 2 / n
-    ts = [round(0.5 * k, 6) for k in range(1, 41)]
-    u = ac2.reference(n, ts, n_modes=n, dt=1e-3)
+    ts = TS
+    cache = os.path.join(H, "results", "ac2d_numerics_fields.npz")
+    if os.path.exists(cache):
+        z = np.load(cache); u = {t: z["u"][i] for i, t in enumerate(ts)}; c_dt, c_n = z["c_dt"], z["c_n"]
+    else:    # three reference runs in parallel: the field, dt x2, modes x2
+        with ProcessPoolExecutor(3) as ex:
+            u, r_dt, r_n = ex.map(_run, [(n, 1e-3, ts), (n, 2e-3, [T]), (2 * n, 1e-3, [T])])
+        c_dt, c_n = r_dt[T], r_n[T]
+        np.savez_compressed(cache, u=np.array([u[t] for t in ts]), c_dt=c_dt, c_n=c_n)
     U = [ac2.u_init(X, Y).reshape(-1)] + [u[t] for t in ts]; Tt = np.array([0.0] + ts)
     E = np.array([ac2.energy(v, n) for v in U])
     R2 = np.array([np.sum((v + 1) / 2) * h * h / np.pi for v in U])          # area of {u > 0} / pi, smooth version
-    c_dt = ac2.reference(n, [T], n_modes=n, dt=2e-3)[T]
-    c_n = ac2.reference(n, [T], n_modes=2 * n, dt=1e-3)[T]
     rel = lambda v: float(np.linalg.norm(v - u[T]) / np.linalg.norm(u[T]))
     checks = {"dt x2": rel(c_dt), "modes x2": rel(c_n)}
 
@@ -40,7 +53,7 @@ def main():
         if i == 1:
             for j, tt in enumerate([0, 5, 10, 15]):
                 ax.contour(xs, xs, U[int(tt * 2)].reshape(n, n), [0], colors="#1E2433", linewidths=0.9,
-                           linestyles=(0, (3, 2)))
+                           linestyles="dashed")
             ax.text(0.0, -0.75, "破線：$t=0,5,10,15$", ha="center", fontsize=9, color="#1E2433")
             cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03); cb.set_ticks([-1, 0, 1]); cb.set_label("$u$", labelpad=-2)
     ax = fig.add_subplot(gs[2])
