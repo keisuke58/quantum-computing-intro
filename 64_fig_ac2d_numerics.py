@@ -52,9 +52,9 @@ def main():
         ax.set_xticks([-1, 0, 1]); ax.set_yticks([-1, 0, 1])
         if i == 1:
             for j, tt in enumerate([0, 5, 10, 15]):
-                ax.contour(xs, xs, U[int(tt * 2)].reshape(n, n), [0], colors="#1E2433", linewidths=0.9,
+                ax.contour(xs, xs, U[int(tt * 2)].reshape(n, n), [0], colors="white", linewidths=1.0,
                            linestyles="dashed")
-            ax.text(0.0, -0.75, "破線：$t=0,5,10,15$", ha="center", fontsize=9, color="#1E2433")
+            ax.text(0.0, -0.75, "白破線：界面 $u=0$（$t=0,5,10,15$）", ha="center", fontsize=9, color="white")
             cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03); cb.set_ticks([-1, 0, 1]); cb.set_label("$u$", labelpad=-2)
     ax = fig.add_subplot(gs[2])
     ax.plot(Tt, R2, color="#1E2433", lw=2, label="数値解")
