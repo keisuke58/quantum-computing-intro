@@ -76,6 +76,10 @@ run_job() {
         python -u 52_allen_cahn_qerc.py --D 1e-4 --N 8 --seeds 3 --n_data 1000 --w_data $W --out results/server/allen_cahn_N8_data_w$W.json
       done
       python -u 56_ac_vqpinn.py --models VQPINN,PINN --N 6 --L 6 --steps 20000 --seeds 3 --n_data 1000 --out results/server/ac_vqpinn_data.json ;;
+    pf_vq_bench)
+      python -u 56_ac_vqpinn.py --models VQPINN,PINN --N 6 --L 6 --seeds 1 --n_data 1000 --bench --out results/server/ac_vqpinn_bench.json ;;
+    pf_ac_data_vq)
+      python -u 56_ac_vqpinn.py --models VQPINN,PINN --N 6 --L 6 --steps 20000 --seeds 3 --n_data 1000 --out results/server/ac_vqpinn_data.json ;;
     bigN)
       for N in 10 12; do
         python 30_qerc_tsv_single.py --N $N --seeds 3 --out results/server/tsv_single_N${N}.json
