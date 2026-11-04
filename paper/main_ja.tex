@@ -1,15 +1,18 @@
 % 日本語の簡潔版（英語草稿 main.tex の要約）．Build: uplatex main_ja && uplatex main_ja && dvipdfmx main_ja
 \documentclass[uplatex,dvipdfmx,a4paper,10pt,twocolumn]{jsarticle}
 \usepackage[margin=18mm,columnsep=7mm]{geometry}
-\usepackage{amsmath,amssymb,amsthm,bm}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathptmx}\usepackage{bm}
 \usepackage{booktabs}
 \usepackage{graphicx}
 \usepackage[dvipdfmx]{hyperref}
 \graphicspath{{../figs/}}
 \renewcommand{\topfraction}{0.9}\renewcommand{\dbltopfraction}{0.9}\renewcommand{\textfraction}{0.1}
 \renewcommand{\floatpagefraction}{0.85}\renewcommand{\dblfloatpagefraction}{0.85}
+\theoremstyle{definition}
 \newtheorem{proposition}{命題}
 \newtheorem{corollary}{系}
+\renewcommand{\proofname}{証明}
 
 \title{量子リザバー PINN の公平な評価\\
 \large ―固体力学と Phase-field 方程式―}
@@ -45,49 +48,109 @@ Zabihi ら \cite{zabihi} は古典 NN と量子回路の混成で Allen--Cahn �
 アルゴリズム \cite{an,sasaki} がある．本研究は近い将来の機械向けの量子リザバーを，同じ解き方の古典の特徴量と比べる．
 
 \section{手法}
-\paragraph{最小二乗 PINN.} 解を固定の特徴量で $u(\bm x)=\sum_kc_k\varphi_k(\bm x)$ と展開し，PDE の残差・境界条件・
-界面条件が係数 $\bm c$ について線形になることを使って，最小二乗を 1 回解く（PIELM \cite{pielm}）．
-時間発展の PF 方程式では BDF2 で時間を進め，非線形項を Newton 法で線形化し，各反復で最小二乗を 1 回解く．
-Cahn--Hilliard は化学ポテンシャル $\mu$ を未知数に加えた混合形で解く．
+\subsection{最小二乗 PINN}
+解を固定の特徴量 $\varphi_k$ で
+\begin{equation}
+  u(\bm x)=\sum_{k=1}^{m}c_k\,\varphi_k(\bm x)
+\end{equation}
+と展開する．線形の PDE では，選点での残差・境界条件・界面条件がすべて係数 $\bm c$ について線形になるので，
+\begin{equation}
+  \bm c=\arg\min_{\bm c}\|A\bm c-\bm b\|_2^2
+\end{equation}
+を 1 回解けば解が決まる（PIELM \cite{pielm}）．勾配法による学習はない．
 
-\paragraph{比べる特徴量.}
-\begin{itemize}
-  \item 量子リザバー：1 量子ビットごとのエンコーディング $|\psi(\bm x)\rangle=\bigotimes_l(\cos\frac{\theta_l}{2}|0\rangle+e^{i\theta_{N+l}}\sin\frac{\theta_l}{2}|1\rangle)$
-        と固定の Haar ユニタリ $U$ から，$p_k=|\langle k|U|\psi\rangle|^2$（$2^N$ 個）
-  \item 古典の乱数特徴量：$\tanh(\bm w_k\cdot\bm x+b_k)$，$\cos(\bm w_k\cdot\bm x+b_k)$
-  \item 古典の対照：同じエンコーディングを使うテンソル積射影，積の乱数特徴量（命題 2）
-  \item 学習あり：変分 QPINN と古典 PINN（Adam で学習）
-\end{itemize}
-どの特徴量も数は $2^N$ にそろえ，入力の倍率をシードごとに掃引して最良を採る．最良の倍率が探索範囲の端なら範囲を広げる．
+時間発展の PF 方程式では，BDF2 で時間を進め，非線形項 $u^3$ を Newton 法で線形化する．
+反復 $k$ の値 $\bm u_k$ のまわりで $(u^{n+1})^3\approx3u_k^2u^{n+1}-2u_k^3$ とすると，Allen--Cahn
+$u_t=Du_{xx}+5u-5u^3$ では各反復で
+\begin{equation}
+\begin{aligned}
+  &\Big[\operatorname{diag}\big(\tfrac{3}{2\Delta t}+15\bm u_k^2-5\big)\Phi-D\,\Phi''\Big]\bm c_{k+1}\\
+  &\qquad=\frac{4\bm u^{n}-\bm u^{n-1}}{2\Delta t}+10\,\bm u_k^3
+\end{aligned}
+\end{equation}
+を最小二乗で解く．$\Phi_{ik}=\varphi_k(x_i)$，$\Phi''_{ik}=\varphi_k''(x_i)$ は最初に 1 回だけ作る．
+Cahn--Hilliard は化学ポテンシャル $\mu$ も同じ特徴量で展開した混合形で解き，2 階より高い微分を使わない．
+
+\subsection{比べる特徴量}
+\paragraph{量子リザバー.} 入力から $2N$ 個の角度 $\bm\theta(\bm x)$ を作り，1 量子ビットごとに
+\begin{equation}
+  |\psi(\bm x)\rangle=\bigotimes_{l=1}^{N}\Big(\cos\tfrac{\theta_l}{2}|0\rangle+e^{i\theta_{N+l}}\sin\tfrac{\theta_l}{2}|1\rangle\Big)
+\end{equation}
+と符号化し，固定の Haar ユニタリ $U$ を通した測定確率
+\begin{equation}
+  p_k(\bm x)=\big|\langle k|U|\psi(\bm x)\rangle\big|^2,\qquad k=0,\dots,2^N-1
+\end{equation}
+を特徴量にする．
+\paragraph{古典の乱数特徴量.} $\varphi_k=\tanh(\bm w_k\cdot\bm z+b_k)$，$\varphi_k=\cos(\bm w_k\cdot\bm z+b_k)$
+（$\bm w_k,b_k$ は乱数で固定）．
+\paragraph{古典の対照.} 同じ $|\psi(\bm x)\rangle$ を使うテンソル積射影 $\mathrm{Re}\,\langle\psi|R_k|\psi\rangle$
+（$R_k$ はランダムなエルミート行列）と，積の乱数特徴量（系 1）．
+\paragraph{学習あり.} 変分 QPINN と古典 PINN を，同じ残差の損失で Adam により学習する．
+
+どの特徴量も数は $m=2^N$ にそろえ，入力の倍率をシードごとに掃引して最良を採る．最良の倍率が探索範囲の端なら範囲を広げる．
 
 \begin{figure*}[t]
-\centering\includegraphics[width=0.75\textwidth]{tsv3d_abaqus.pdf}
+\centering\includegraphics[width=0.58\textwidth]{tsv3d_abaqus.pdf}
 \caption{TSV の単位セル（直径 5\,\textmu m，高さ 50\,\textmu m，ピッチ 15\,\textmu m，$\Delta T=-250$\,K）の Abaqus 参照解．
 von Mises 応力は上面近くで大きく，2 次元の平面ひずみでは表せない．}
 \end{figure*}
 
 \section{理論：リザバーが加えられるもの}
-$\rho(\bm x)=\bigotimes_l\rho_l(\bm x)$ とし，$\mathcal F_\rho=\{\mathrm{Tr}[H\rho(\bm x)]:H\ \text{エルミート}\}$ とおく．
-\begin{proposition}
-任意の $U$ に対し $\mathrm{span}\{p_k\}\subseteq\mathcal F_\rho$．リザバーは $\mathcal F_\rho$ の中から $2^N$ 次元の部分空間を選ぶだけである．
+符号化した状態を $\rho(\bm x)=|\psi(\bm x)\rangle\langle\psi(\bm x)|=\bigotimes_l\rho_l(\bm x)$ と書き，
+$\rho(\bm x)$ の行列要素が張る実関数の空間を
+\begin{equation}
+  \mathcal F_\rho=\big\{\bm x\mapsto\mathrm{Tr}[H\rho(\bm x)]\ :\ H=H^\dagger\big\}
+\end{equation}
+とおく（$H$ は $2^N\times2^N$ のエルミート行列）．
+
+\begin{proposition}[リザバーは部分空間を選ぶだけ]
+任意のユニタリ $U$ に対して $\mathrm{span}\{p_k\}\subseteq\mathcal F_\rho$ であり，
+$\dim\mathrm{span}\{p_k\}\le\min(2^N,\dim\mathcal F_\rho)$ が成り立つ．
 \end{proposition}
-\begin{proposition}
-$\mathcal F_\rho=\mathrm{span}\{\prod_l\mathrm{Tr}[A_l\rho_l(\bm x)]\}$（$A_l$ は $2\times2$ エルミート）．よって $\dim\mathcal F_\rho\le4^N$．
+\begin{proof}
+$M_k=U^\dagger|k\rangle\langle k|U$ とおくと $p_k=\mathrm{Tr}[M_k\rho(\bm x)]$ で，$M_k$ はエルミートである．
+\end{proof}
+
+\begin{proposition}[$\mathcal F_\rho$ は積で張られる]
+\begin{equation}
+  \mathcal F_\rho=\mathrm{span}\Big\{\prod_{l=1}^{N}\mathrm{Tr}\big[A_l\,\rho_l(\bm x)\big]\ :\ A_l=A_l^\dagger\Big\}
+\end{equation}
+（$A_l$ は $2\times2$ のエルミート行列）であり，$\dim\mathcal F_\rho\le4^N$ である．
 \end{proposition}
-\begin{corollary}
-積の乱数特徴量 $f_k=\prod_l\mathrm{Tr}[A_{k,l}\rho_l]$ は $\mathcal F_\rho$ に入り，古典で 1 個あたり $O(N)$ で計算できる．
+\begin{proof}
+積の形の演算子 $\bigotimes_lA_l$ はエルミート行列全体を張り，$\mathrm{Tr}[(\bigotimes_lA_l)\bigotimes_l\rho_l]=\prod_l\mathrm{Tr}[A_l\rho_l]$ である．
+各因子は $1$ と 1 量子ビットの Bloch ベクトルの 3 成分の線形結合なので，積は高々 $4^N$ 通り．
+\end{proof}
+
+\begin{corollary}[古典でも同じ空間を作れる]
+ランダムな $2\times2$ エルミート行列 $A_{k,l}$ による積の乱数特徴量
+\begin{equation}
+  f_k(\bm x)=\prod_{l=1}^{N}\mathrm{Tr}\big[A_{k,l}\,\rho_l(\bm x)\big]
+\end{equation}
+は $\mathcal F_\rho$ に属し，$2^N$ 次元の状態を作らずに 1 個あたり $O(N)$ の演算で計算できる．
 \end{corollary}
-\begin{proposition}
-各 $p_k$ を $S$ ショットで推定すると相対誤差は約 $\sqrt{2^N/S}$．2 階微分にはパラメータシフトで $O(N^2)$ 個の回路が要り，
-1 点あたり $O(N^2 2^N/\varepsilon^2)$ ショットになる．古典の積の特徴量は $O(N2^N)$ 回の演算で済む．
+
+\begin{proposition}[実機での読み出しの費用]
+各 $p_k$ を $S$ ショットで推定すると $\mathrm{Var}\,\hat p_k=p_k(1-p_k)/S$ である．Haar リザバーでは
+$\mathbb E\,p_k=2^{-N}$ なので，特徴量を相対誤差 $\varepsilon$ で得るには 1 回路あたり $S\gtrsim2^N/\varepsilon^2$ ショットが要る．
+2 階微分にはパラメータシフトで $O(N^2)$ 個の回路が要るので，選点 1 点あたり $O(N^2\,2^N/\varepsilon^2)$ ショットになる．
 \end{proposition}
-TSV 単体（$N=8$，3 シード）では，積の乱数特徴量が $3.5\times10^{-3}$，Haar リザバーが $3.9\times10^{-3}$ で，
+\begin{proof}
+多項分布の分散と，$2N$ 個の角度の組 $(2N)^2$ 通りそれぞれに 4 つのシフト回路が要ることによる．
+\end{proof}
+
+\begin{corollary}[特徴量の評価で量子は得をしない]
+$M$ 点・$m=2^N$ 個の特徴量では，量子の読み出しは $O(MN^2\,2^N/\varepsilon^2)$ ショット，系 1 の古典の特徴量は
+$O(MN\,2^N)$ 回の演算で，両者の比は $N/\varepsilon^2\ge1$ である．
+\end{corollary}
+
+数値でも確かめた．TSV 単体（$N=8$，3 シード）で，積の乱数特徴量は $3.5\times10^{-3}$，Haar リザバーは $3.9\times10^{-3}$ で，
 古典の $O(N)$ の特徴量が同等以上だった．
 
 \section{結果}
 \subsection{固体力学}
 \begin{figure*}[t]
-\centering\includegraphics[width=0.72\textwidth]{pf_explain.pdf}
+\centering\includegraphics[width=0.6\textwidth]{pf_explain.pdf}
 \caption{Phase-field 法の基本（計算した参照解から作図）．(a) 二重井戸の自由エネルギー，(b) Allen--Cahn の $u(t,x)$，
 (c) $t=1$ の界面（幅 約 0.04），(d) Cahn--Hilliard は相の量（平均）を保ったまま分離する．}
 \end{figure*}
@@ -110,7 +173,7 @@ TSV 単体（$N=12$）    & $5.6\times10^{-5}$ & -- & $5.7\times10^{-5}$ & $\bm{
 \begin{table}[t]
 \centering\small\setlength{\tabcolsep}{3pt}
 \caption{参照解の相互確認（$\bm u$ は相対 $L_2$，von Mises は最大値で規格化した平均絶対誤差）}
-\begin{tabular}{lccc}
+\resizebox{\columnwidth}{!}{\begin{tabular}{lccc}
 \toprule
 比較 & $\bm u$ & 中央面 & 上面近く\\
 \midrule
@@ -118,15 +181,11 @@ TSV 単体（$N=12$）    & $5.6\times10^{-5}$ & -- & $5.7\times10^{-5}$ & $\bm{
 軸対称・上面自由：同上 & 8.8e-5 & 3.2e-4 & 7.7e-4\\
 3D 中央面 と 2D 平面ひずみ & 2.4e-4 & 3.1e-4 & --\\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 ビア中心の応力も平面ひずみの Lamé 解と一致した（$\sigma_{rr}=\sigma_{\theta\theta}=642$\,MPa，$\sigma_{zz}=917$\,MPa）．
 入力の倍率の調整は結論を大きく変える．調整しない古典の対照は 2 シードでは量子と同等に見えたが，調整すると 20 倍良くなった．
 また $N=12$ の Fourier 特徴量は，倍率の範囲を広げると $3.2\times10^{-4}$ から $8.3\times10^{-6}$ に改善した．
-\begin{figure}[t]
-\centering\includegraphics[width=\columnwidth]{qerc_fair_scales.pdf}
-\caption{Kirsch 円孔板：すべての特徴量で入力の倍率を調整した比較（5 シード）．}
-\end{figure}
 量子リザバーは同じテンソル積構造の古典の対照と同等で，特徴量が増えると Fourier 特徴量が最良になる．
 TSV の軸対称・3 次元セルでも Fourier 特徴量が最も正確だった．
 
@@ -154,14 +213,24 @@ Fourier & \textbf{6.0e-3} & \textbf{4.7e-3} & \textbf{1.5e-3} & \textbf{6.5e-3}\
 \caption{Phase-field 方程式での各手法の誤差（対数軸，低いほど良い）．破線は公表されている適応 PINN．}
 \end{figure}
 
-Allen--Cahn は Raissi らの例題 $u_t-10^{-4}u_{xx}+5u^3-5u=0$，$u(0,x)=x^2\cos\pi x$（周期境界），
-Cahn--Hilliard は Wight \& Zhao の例題 $u_t=\mu_{xx}$，$\mu=0.01(u^3-u)-10^{-6}u_{xx}$，$u(0,x)=-\cos2\pi x$ を用いた．
+例題は Raissi ら \cite{raissi} と Wight \& Zhao \cite{wight} のものを使う（$x\in[-1,1]$，$t\in[0,1]$，周期境界）．
+Allen--Cahn：
+\begin{equation}
+  u_t-10^{-4}u_{xx}+5u^3-5u=0,\qquad u(0,x)=x^2\cos\pi x,
+\end{equation}
+Cahn--Hilliard：
+\begin{equation}
+\begin{aligned}
+  &u_t=\mu_{xx},\qquad \mu=0.01\,(u^3-u)-10^{-6}u_{xx},\\
+  &u(0,x)=-\cos2\pi x.
+\end{aligned}
+\end{equation}
 参照解は Fourier スペクトル法と ETDRK4 で求めた．
 
 \begin{table}[t]
 \centering\small\setlength{\tabcolsep}{3pt}
 \caption{$t=1$ での相対 $L_2$ 誤差}
-\begin{tabular}{lccc}
+\resizebox{\columnwidth}{!}{\begin{tabular}{lccc}
 \toprule
 手法 & AC（$N=8$） & AC（$N=10$） & CH（$N=8$） \\
 \midrule
@@ -172,7 +241,7 @@ Fourier（最小二乗）& $2.3\times10^{-3}$ & $3.4\times10^{-5}$ & $1.4\times1
 古典 PINN（学習）& 0.13 & -- & -- \\
 適応 PINN \cite{wight} & $2.3\times10^{-2}$ & -- & $9.5\times10^{-3}$ \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 
@@ -228,7 +297,7 @@ $\infty$ & $6.3\times10^{-4}$ & $\bm{2.1\times10^{-4}}$\\
 量子リザバー PINN は動く PDE ソルバーであり，変分 QPINN の最適化の失敗を避け，PF 方程式では学習ありの PINN より正確である．
 しかし公平に比べると，同じ解き方の古典の乱数特徴量と同等かそれ以下であり，量子の優位は示せない．
 
-\begin{thebibliography}{11}
+{\footnotesize\setlength{\itemsep}{0pt}\begin{thebibliography}{11}\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}
 \bibitem{raissi} M. Raissi, P. Perdikaris, G. E. Karniadakis, J. Comput. Phys. 378 (2019) 686--707.
 \bibitem{wight} C. L. Wight, J. Zhao, Commun. Comput. Phys. 29 (2021) 930--954.
 \bibitem{pielm} V. Dwivedi, B. Srinivasan, Neurocomputing 391 (2020) 96--118.
@@ -239,5 +308,5 @@ $\infty$ & $6.3\times10^{-4}$ & $\bm{2.1\times10^{-4}}$\\
 \bibitem{ikeda} A. Ikeda, A. Sakurai, K. Nemoto, M. Muramatsu, arXiv:2601.02150 (2026).
 \bibitem{an} D. An, D. Fang, S. Jordan, J.-P. Liu, G. H. Low, J. Wang, Commun. Math. Phys. (2023).
 \bibitem{sasaki} S. Sasaki, K. Endo, M. Muramatsu, Sci. Rep. 16 (2026) 11743.
-\end{thebibliography}
+\end{thebibliography}}
 \end{document}
