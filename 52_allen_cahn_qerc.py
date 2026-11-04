@@ -37,6 +37,23 @@ def make_qerc(N, seed, scale):
     return feat
 
 
+def make_product_rf(N, seed, scale):
+    """Product random features with the same encoding (angles) as make_qerc:
+    f_k(x) = prod_l <q_l(x)| A_{k,l} |q_l(x)>, A_{k,l} random 2x2 Hermitian. In the QERC function space,
+    O(N) per feature (Corollary in the paper)."""
+    g = np.random.default_rng(1000 + seed)
+    W = jnp.asarray(g.normal(size=(2, 2 * N)) * scale); b = jnp.asarray(g.normal(size=2 * N))
+    m = 2**N
+    Z = (g.normal(size=(m, N, 2, 2)) + 1j * g.normal(size=(m, N, 2, 2))) / 2
+    A = jnp.asarray(Z + np.conj(np.transpose(Z, (0, 1, 3, 2))))
+
+    def feat(x):
+        ang = jnp.pi * (jnp.tanh(_z(x) @ W + b) + 1) / 2
+        q = jnp.stack([jnp.cos(ang[:N] / 2), jnp.exp(1j * ang[N:]) * jnp.sin(ang[:N] / 2)], -1)
+        return jnp.prod(jnp.real(jnp.einsum("li,klij,lj->kl", jnp.conj(q), A, q)), axis=1)
+    return feat
+
+
 def make_tanh(m, seed, scale):
     g = np.random.default_rng(seed)
     W = jnp.asarray(g.normal(size=(2, m)) * scale); b = jnp.asarray(g.normal(size=m))
@@ -162,7 +179,7 @@ def main():
     ap.add_argument("--seeds", type=int, default=2)
     ap.add_argument("--M", type=int, default=0, help="collocation points (default 4 * 2^N)")
     ap.add_argument("--dt", type=float, default=1e-3)
-    ap.add_argument("--models", default="QERC-Haar,tanh-RF,Fourier")
+    ap.add_argument("--models", default="QERC-Haar,tanh-RF,Fourier,product-RF")
     ap.add_argument("--scales", default=None)
     ap.add_argument("--out", default="results/allen_cahn.json")
     a = ap.parse_args()
@@ -176,6 +193,7 @@ def main():
         "QERC-Haar": ([2, 4, 8, 16, 32], lambda sd, s: make_qerc(a.N, sd, s)),
         "tanh-RF": ([8, 16, 32, 64], lambda sd, s: make_tanh(m, sd, s)),
         "Fourier": ([8, 16, 32, 64], lambda sd, s: make_fourier(m, sd, s)),
+        "product-RF": ([2, 4, 8, 16, 32], lambda sd, s: make_product_rf(a.N, sd, s)),
     }
     grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
     if a.scales:
