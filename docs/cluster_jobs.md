@@ -42,6 +42,7 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | 12 | `pf_ch` | **Phase-field：Cahn–Hilliard**（混合形，ε² = 0.02）．N = 8 は 5 シード `qsub -v JOB=pf_ch,PFN=8 scripts/pbs_job.sh`，N = 10 は重いので 3 シード `qsub -v JOB=pf_ch,PFN=10,PFSEEDS=3 scripts/pbs_job.sh`（ログは `logs/pbs_pf_ch_N8.log` など） | `results/server/cahn_hilliard_N8.json`，`_N10.json` | N = 8：数時間，N = 10：1 日程度 | 完了（2026-11-04，GPU 版で再実行） |
 | 13 | `pf_ch_wz` | **Cahn–Hilliard を Wight & Zhao（2021）の例題で**（γ2 = 0.01，γ1 = 1e-6，u0 = −cos 2πx．界面が鋭い）．古典 PINN の報告値 9.51e-3 と直接比べるため．N = 8 は 5 シード `qsub -v JOB=pf_ch_wz,PFN=8 scripts/pbs_job.sh`，N = 10 は 3 シード `qsub -v JOB=pf_ch_wz,PFN=10,PFSEEDS=3 scripts/pbs_job.sh` | `results/server/cahn_hilliard_wz_N8.json`，`_N10.json` | N = 8：数時間，N = 10：1 日程度 | 未実行（N = 8 は完了 2026-11-04，N = 10 は実行中） |
 | 14 | `pf_ac_vqpinn` | **Allen–Cahn の比較対象**：変分 QPINN（6 量子ビット，6 層）と普通の PINN（同じパラメータ数の小さい MLP と，4 層 × 64）を同じ損失・Adam 20000 回で学習．3 シード．`qsub -v JOB=pf_ac_vqpinn scripts/pbs_job.sh` | `results/server/ac_vqpinn.json` | 数時間〜半日（VQPINN が重い） | 完了（2026-11-04） |
+| 15 | `pf_ac2d` | **2 次元の Allen–Cahn（縮む円）**．最初に `--check`（厳密な Fourier 基底で参照解と時間刻みを確認，ログに出るだけ）．続けて量子リザバー・tanh・Fourier を 3 シード．N = 8 と 10 を別々に：`qsub -v JOB=pf_ac2d,PFN=8 scripts/pbs_job.sh`，`qsub -v JOB=pf_ac2d,PFN=10 scripts/pbs_job.sh`（GPU は 2 本だけ使う） | `results/server/ac2d_N8.json`，`_N10.json`，ログの check の行 | N = 8：数時間，N = 10：半日 | 未実行 |
 
 （`seeds5` / `tsv` / `array` は Claude 側の環境で回したので不要）
 
