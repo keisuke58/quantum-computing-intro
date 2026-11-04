@@ -118,11 +118,19 @@ def main():
     ap.add_argument("--n_col", type=int, default=4000)
     ap.add_argument("--w_ic", type=float, default=100.0)
     ap.add_argument("--seeds", type=int, default=3)
+    ap.add_argument("--n_data", type=int, default=0, help="data points: n_data/10 random x at each t = 0.1, ..., 1.0")
+    ap.add_argument("--w_data", type=float, default=100.0)
     ap.add_argument("--out", default="results/ac_vqpinn.json")
     a = ap.parse_args()
     M = 1024; xg = -1 + 2 * (np.arange(M) + 0.5) / M
     t_out = [0.25, 0.5, 1.0]
     t0 = time.time(); ref = ac.reference(D, xg, t_out); print(f"reference {time.time()-t0:.0f}s", flush=True)
+    if a.n_data:   # same data points as 52_allen_cahn_qerc.py --n_data
+        t_data = [round(0.1 * k, 6) for k in range(1, 11)]
+        xd1 = np.sort(np.random.default_rng(7).uniform(-1, 1, a.n_data // 10))
+        udd = ac.reference(D, xd1, t_data)
+        xd = jnp.asarray(np.tile(xd1, len(t_data))); td = jnp.asarray(np.repeat(t_data, len(xd1)))
+        ud = jnp.asarray(np.concatenate([udd[t] for t in t_data]))
     rows = []
     for name in a.models.split(","):
         for sd in range(a.seeds):
@@ -149,7 +157,10 @@ def main():
             def loss(p):
                 r = jax.vmap(resid, (None, 0, 0))(p, xc, tc)
                 e0 = jax.vmap(uf, (None, 0, None))(p, x0, 0.0) - u0
-                return jnp.mean(r**2) + a.w_ic * jnp.mean(e0**2)
+                L = jnp.mean(r**2) + a.w_ic * jnp.mean(e0**2)
+                if a.n_data:
+                    L = L + a.w_data * jnp.mean((jax.vmap(uf, (None, 0, 0))(p, xd, td) - ud) ** 2)
+                return L
 
             t0 = time.time()
             p, hist = adam(loss, p, a.steps, a.lr)
@@ -157,7 +168,7 @@ def main():
             ev = jax.jit(jax.vmap(uf, (None, 0, None)))
             errs = {t: float(np.linalg.norm(np.asarray(ev(p, jnp.asarray(xg), t)) - ref[t]) / np.linalg.norm(ref[t]))
                     for t in t_out}
-            rows.append({"model": name, "seed": sd, "params": n_params(p), "steps": a.steps, "time_s": tt,
+            rows.append({"model": name, "seed": sd, "params": n_params(p), "steps": a.steps, "time_s": tt, "n_data": a.n_data,
                          "loss_hist": hist, **{f"t{t}": e for t, e in errs.items()}})
             print(f"{name:10s} seed={sd} params={n_params(p)} " + " ".join(f"t={t}:{e:.1e}" for t, e in errs.items()) +
                   f" loss={hist[-1][1]:.1e} {tt:.0f}s", flush=True)

@@ -114,8 +114,18 @@ def _ac_newton_iter(Phi, Phixx, uk, a, rhs0, D):
     return un, jnp.max(jnp.abs(un - uk))
 
 
+@jax.jit
+def _ac_newton_iter_data(Phi, Phixx, uk, a, rhs0, D, Pd, ud, w):
+    """as _ac_newton_iter, plus data rows w * (Pd c - ud) at this time level"""
+    A = jnp.concatenate([(a + 15 * uk**2 - 5)[:, None] * Phi - D * Phixx, w * Pd])
+    b = jnp.concatenate([rhs0 + 10 * uk**3, w * ud])
+    un = Phi @ lsq_j(A, b)
+    return un, jnp.max(jnp.abs(un - uk))
+
+
 # ---------------- time marching with fixed features ----------------
-def march(Phi, Phixx, x, D, dt, T, t_out, newton=6, tol=1e-10, efun=None, u0=None):
+def march(Phi, Phixx, x, D, dt, T, t_out, newton=6, tol=1e-10, efun=None, u0=None, data=None):
+    """data: optional {step index: (Phi at data points, data values, weight)} -> data rows added at that step"""
     u0 = x**2 * np.cos(np.pi * x) if u0 is None else u0(x)
     c = lsq(Phi, u0); u_prev = None; u = Phi @ c
     err_ic = np.linalg.norm(u - u0) / np.linalg.norm(u0)
@@ -129,8 +139,12 @@ def march(Phi, Phixx, x, D, dt, T, t_out, newton=6, tol=1e-10, efun=None, u0=Non
         else:                                  # BDF2
             a, rhs0 = 1.5 / dt, (4 * u - u_prev) / (2 * dt)
         uk = u
+        dd = data.get(n) if data else None
         for _ in range(newton):
-            uk, d = _ac_newton_iter(Pj, Pxxj, uk, a, rhs0, D)
+            if dd is None:
+                uk, d = _ac_newton_iter(Pj, Pxxj, uk, a, rhs0, D)
+            else:
+                uk, d = _ac_newton_iter_data(Pj, Pxxj, uk, a, rhs0, D, jnp.asarray(dd[0]), jnp.asarray(dd[1]), dd[2])
             if float(d) < tol:
                 break
         u_prev, u = u, uk
@@ -181,12 +195,19 @@ def main():
     ap.add_argument("--dt", type=float, default=1e-3)
     ap.add_argument("--models", default="QERC-Haar,tanh-RF,Fourier,product-RF")
     ap.add_argument("--scales", default=None)
+    ap.add_argument("--n_data", type=int, default=0, help="data points: n_data/10 random x at each t = 0.1, ..., 1.0")
+    ap.add_argument("--w_data", type=float, default=1.0, help="data-row weight relative to 1/dt")
     ap.add_argument("--out", default="results/allen_cahn.json")
     a = ap.parse_args()
     m = 2**a.N; M = a.M or 4 * m
     x = -1 + 2 * (np.arange(M) + 0.5) / M
     t_out = [0.25, 0.5, 1.0]
     t0 = time.time(); ref = reference(a.D, x, t_out); print(f"reference {time.time()-t0:.0f}s", flush=True)
+    t_data = [round(0.1 * k, 6) for k in range(1, 11)]
+    if a.n_data:
+        xd = np.sort(np.random.default_rng(7).uniform(-1, 1, a.n_data // 10))
+        ud = reference(a.D, xd, t_data)
+        print(f"data: {len(xd)} points x {len(t_data)} times", flush=True)
     E_ref = {t: energy_ac(ref[t], a.D) for t in t_out}
     print("reference energy: " + " ".join(f"t={t}:{E_ref[t]:.5f}" for t in t_out), flush=True)
     grid = {
@@ -205,11 +226,15 @@ def main():
             for s in scales:
                 t0 = time.time()
                 Phi, Phixx = feature_mats(ctor(sd, s), x)
-                e_ic, out = march(Phi, Phixx, x, a.D, a.dt, 1.0, t_out, efun=lambda u: energy_ac(u, a.D))
+                data = None
+                if a.n_data:
+                    Pd = feature_mats(ctor(sd, s), xd)[0]
+                    data = {int(round(t / a.dt)): (Pd, ud[t], a.w_data / a.dt) for t in t_data}
+                e_ic, out = march(Phi, Phixx, x, a.D, a.dt, 1.0, t_out, efun=lambda u: energy_ac(u, a.D), data=data)
                 errs = {t: (float(np.linalg.norm(out[t] - ref[t]) / np.linalg.norm(ref[t])) if out else float("nan"))
                         for t in t_out}
                 em = energy_metrics(out["E"], E_ref[1.0]) if out else {"E_rel_T": float("nan"), "E_up": float("nan")}
-                rows.append({"D": a.D, "N": a.N, "model": name, "seed": sd, "scale": s, "ic": float(e_ic),
+                rows.append({"D": a.D, "N": a.N, "model": name, "seed": sd, "scale": s, "ic": float(e_ic), "n_data": a.n_data,
                              **{f"t{t}": e for t, e in errs.items()}, **em})
                 print(f"{name:10s} seed={sd} x{s:<5} ic={e_ic:.1e} " +
                       " ".join(f"t={t}:{e:.1e}" for t, e in errs.items()) +

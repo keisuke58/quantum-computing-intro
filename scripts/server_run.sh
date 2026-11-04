@@ -71,6 +71,11 @@ run_job() {
       python -u 52_allen_cahn_qerc.py --D 1e-4 --N 8 --seeds 5 --models QERC-Haar,product-RF --scales 2,4,8,16 --out results/server/allen_cahn_N8_product.json ;;
     pf_ac2d_low)
       python -u 59_ac2d_qerc.py --N ${PFN:-8} --seeds 3 --scales 0.25,0.5,1 --out results/server/ac2d_N${PFN:-8}_low.json ;;
+    pf_ac_data)
+      for W in 0.1 1; do
+        python -u 52_allen_cahn_qerc.py --D 1e-4 --N 8 --seeds 3 --n_data 1000 --w_data $W --out results/server/allen_cahn_N8_data_w$W.json
+      done
+      python -u 56_ac_vqpinn.py --models VQPINN,PINN --N 6 --L 6 --steps 20000 --seeds 3 --n_data 1000 --out results/server/ac_vqpinn_data.json ;;
     bigN)
       for N in 10 12; do
         python 30_qerc_tsv_single.py --N $N --seeds 3 --out results/server/tsv_single_N${N}.json

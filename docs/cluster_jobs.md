@@ -45,6 +45,7 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | 15 | `pf_ac2d` | **2 次元の Allen–Cahn（縮む円）**．最初に `--check`（厳密な Fourier 基底で参照解と時間刻みを確認，ログに出るだけ）．続けて量子リザバー・tanh・Fourier を 3 シード．N = 8 と 10 を別々に：`qsub -v JOB=pf_ac2d,PFN=8 scripts/pbs_job.sh`，`qsub -v JOB=pf_ac2d,PFN=10 scripts/pbs_job.sh`（GPU は 2 本だけ使う） | `results/server/ac2d_N8.json`，`_N10.json`，ログの check の行 | N = 8：数時間，N = 10：半日 | 完了（2026-11-04） |
 | 16 | `pf_ac_product` | **命題の数値確認（Allen–Cahn）**：量子リザバーと，同じエンコーディングの古典の積の乱数特徴量を N = 8，5 シードで比べる．`qsub -v JOB=pf_ac_product scripts/pbs_job.sh` | `results/server/allen_cahn_N8_product.json` | 1〜2 時間 | 完了（2026-11-04） |
 | 17 | `pf_ac2d_low` | **2D Allen–Cahn の倍率を下に広げる**（15 番で最良の倍率が 3 手法とも範囲の下の端だった）．3 手法を ×0.25, ×0.5, ×1 で 3 シード．N = 8 と 10 を別々に：`qsub -v JOB=pf_ac2d_low,PFN=8 scripts/pbs_job.sh`，`qsub -v JOB=pf_ac2d_low,PFN=10 scripts/pbs_job.sh` | `results/server/ac2d_N8_low.json`，`_N10_low.json` | N = 8：1〜2 時間，N = 10：数時間 | 完了（2026-11-04） |
+| 18 | `pf_ac_data` | **Allen–Cahn をデータありで**（Rakala 実装と同じ「データ＋物理」）．参照解の値 1000 点（t = 0.1, …, 1.0 の各時刻に 100 点）を足す．最小二乗の 3 手法（N = 8，データの重み 0.1 と 1，3 シード）と，変分 QPINN・PINN（3 シード）．`qsub -v JOB=pf_ac_data scripts/pbs_job.sh` | `results/server/allen_cahn_N8_data_w0.1.json`，`_w1.json`，`ac_vqpinn_data.json` | 半日（変分 QPINN が重い） | 未実行 |
 
 （`seeds5` / `tsv` / `array` は Claude 側の環境で回したので不要）
 
