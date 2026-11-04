@@ -92,14 +92,28 @@ def n_params(p):
 
 
 # ---------------- training ----------------
-def adam(loss, p, steps, lr, log_every=1000, args=()):
-    """args: the point arrays, passed to the jitted loss as arguments (not baked into the graph as constants)"""
-    vg = jax.jit(jax.value_and_grad(loss))
+def split_value_and_grad(terms):
+    """terms: [(loss_fn, args), ...]. Each term is jitted on its own and the values and gradients are summed.
+    Jitting the PDE and data terms together made the data-assisted VQPINN step 3x slower on GPU
+    (copaam 3090: 570 ms PDE, 37 ms data, 1789 ms joint); separately the cost is the sum."""
+    vgs = [(jax.jit(jax.value_and_grad(f)), ar) for f, ar in terms]
+
+    def vg(p):
+        out = [f(p, *ar) for f, ar in vgs]
+        val = sum(o[0] for o in out)
+        g = jax.tree_util.tree_map(lambda *gs: sum(gs), *[o[1] for o in out])
+        return val, g
+    return vg
+
+
+def adam(terms, p, steps, lr, log_every=1000):
+    """terms: [(loss_fn, args), ...]; point arrays are passed as jit arguments (not baked in as constants)"""
+    vg = split_value_and_grad(terms)
     m = jax.tree_util.tree_map(jnp.zeros_like, p); v = jax.tree_util.tree_map(jnp.zeros_like, p)
     b1, b2, eps = 0.9, 0.999, 1e-8
     hist = []
     for i in range(1, steps + 1):
-        val, g = vg(p, *args)
+        val, g = vg(p)
         m = jax.tree_util.tree_map(lambda m, g: b1 * m + (1 - b1) * g, m, g)
         v = jax.tree_util.tree_map(lambda v, g: b2 * v + (1 - b2) * g * g, v, g)
         lr_i = lr * min(1.0, 0.5 * (1 + np.cos(np.pi * i / steps)) + 0.01)      # cosine decay
@@ -131,9 +145,8 @@ def main():
         t_data = [round(0.1 * k, 6) for k in range(1, 11)]
         xd1 = np.sort(np.random.default_rng(7).uniform(-1, 1, a.n_data // 10))
         udd = ac.reference(D, xd1, t_data)
-        # (n_t, n_x) grid: each time is evaluated like the IC term (t fixed, vmap over x only); vmapping x and t
-        # together made the data term 4-6x slower than the PDE term on GPU (VQPINN only, copaam job 19)
-        xd = jnp.asarray(xd1); ud = jnp.asarray(np.stack([udd[t] for t in t_data]))
+        xd = jnp.asarray(np.tile(xd1, len(t_data))); td = jnp.asarray(np.repeat(t_data, len(xd1)))
+        ud = jnp.asarray(np.concatenate([udd[t] for t in t_data]))
     rows = []
     for name in a.models.split(","):
         for sd in range(a.seeds):
@@ -157,28 +170,26 @@ def main():
                 uxx = jax.grad(jax.grad(uf, argnums=1), argnums=1)(p, x, t)
                 return ut - D * uxx + 5 * u**3 - 5 * u
 
-            def loss(p, xc, tc, x0, u0, *dat):
+            def loss_pde(p, xc, tc, x0, u0):
                 r = jax.vmap(resid, (None, 0, 0))(p, xc, tc)
                 e0 = jax.vmap(uf, (None, 0, None))(p, x0, 0.0) - u0
-                L = jnp.mean(r**2) + a.w_ic * jnp.mean(e0**2)
-                if dat:
-                    xd, ud = dat
-                    ed = jnp.stack([jax.vmap(uf, (None, 0, None))(p, xd, t) for t in t_data]) - ud
-                    L = L + a.w_data * jnp.mean(ed**2)
-                return L
+                return jnp.mean(r**2) + a.w_ic * jnp.mean(e0**2)
 
-            args = (xc, tc, x0, u0) + ((xd, ud) if a.n_data else ())
+            def loss_data(p, xd, td, ud):
+                return a.w_data * jnp.mean((jax.vmap(uf, (None, 0, 0))(p, xd, td) - ud) ** 2)
+
+            terms = [(loss_pde, (xc, tc, x0, u0))] + ([(loss_data, (xd, td, ud))] if a.n_data else [])
             if a.bench:     # time one step of the loss gradient with and without the data term, then stop
-                for lab, ar in [("no data", args[:4]), ("with data", args)]:
-                    vg = jax.jit(jax.value_and_grad(loss)); jax.block_until_ready(vg(p, *ar))
+                for lab, tm in [("no data", terms[:1]), ("with data", terms)]:
+                    vg = split_value_and_grad(tm); jax.block_until_ready(vg(p))
                     t0 = time.time()
                     for _ in range(20):
-                        jax.block_until_ready(vg(p, *ar))
+                        jax.block_until_ready(vg(p))
                     print(f"bench {name} {lab}: {(time.time() - t0) / 20 * 1000:.0f} ms/step on {jax.devices()[0]}", flush=True)
                 continue
 
             t0 = time.time()
-            p, hist = adam(loss, p, a.steps, a.lr, args=args)
+            p, hist = adam(terms, p, a.steps, a.lr)
             tt = time.time() - t0
             ev = jax.jit(jax.vmap(uf, (None, 0, None)))
             errs = {t: float(np.linalg.norm(np.asarray(ev(p, jnp.asarray(xg), t)) - ref[t]) / np.linalg.norm(ref[t]))
