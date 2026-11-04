@@ -35,8 +35,8 @@ def main():
     rel = lambda v: float(np.linalg.norm(v - u[1.0]) / np.linalg.norm(u[1.0]))
     checks = {"dt x2": rel(c_dt), "modes /2": rel(c_n)}
 
-    fig = plt.figure(figsize=(14, 4.6))
-    gs = fig.add_gridspec(1, 4, width_ratios=[1.2, 1.1, 0.85, 0.85], wspace=0.45)
+    fig = plt.figure(figsize=(16.5, 4.6))
+    gs = fig.add_gridspec(1, 4, width_ratios=[1.2, 1.1, 0.95, 0.95], wspace=0.36)
     ax = fig.add_subplot(gs[0])
     im = ax.imshow(U.T, origin="lower", aspect="auto", extent=[0, 1, -1, 1], cmap="RdBu_r", vmin=-1, vmax=1)
     ax.set_xlabel("時間 $t$"); ax.set_ylabel("位置 $x$"); ax.set_title("(a) $u(t,x)$", loc="left")
