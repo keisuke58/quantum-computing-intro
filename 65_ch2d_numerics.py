@@ -91,7 +91,7 @@ def main():
     checks = {"dt x2": rel(c_dt), "modes x2": rel(c_n)}
 
     fig = plt.figure(figsize=(16.5, 4.6))
-    gs = fig.add_gridspec(1, 4, width_ratios=[1, 1, 1.12, 1.1], wspace=0.3)
+    gs = fig.add_gridspec(1, 4, width_ratios=[1, 1, 1.12, 1.1], wspace=0.48)
     for i, t in enumerate(T_SNAP):
         ax = fig.add_subplot(gs[i])
         im = ax.imshow(R["snap"][t], origin="lower", extent=[-1, 1, -1, 1], cmap="RdBu_r", vmin=-1, vmax=1)
@@ -100,7 +100,7 @@ def main():
         if i == 2:
             cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03); cb.set_ticks([-1, 0, 1]); cb.set_label("$\\phi$", labelpad=-2)
     ax = fig.add_subplot(gs[3])
-    ax.semilogx(R["t"][1:], R["E"][1:], color="#1E2433", lw=2)
+    ax.semilogx(R["t"][1:], R["E"][1:], color="#1E2433", lw=2); ax.set_xlim(1e-3, 1.1)
     for t in T_SNAP:
         ax.axvline(t, color="#9AA5B8", lw=0.8, ls=":")
     ax.set_xlabel("時間 $t$（対数）"); ax.set_ylabel("自由エネルギー $E$"); ax.set_title("(d) エネルギーは単調に減少", loc="left")
