@@ -28,7 +28,7 @@
 (3) しかしリザバーは表現力を増やせないことを命題として示す．特徴量はエンコーディングで決まる関数空間 $\mathcal F_\rho$ の
 部分空間を張るだけで，$\mathcal F_\rho$ は古典でも 1 特徴量あたり $O(N)$ の計算で作れ，実機での読み出しは古典の計算より高くつく．
 (4) 数値でも，量子リザバーは同じ解き方の古典の乱数特徴量に負け，鋭い界面では量子ビットを 8 から 10 に増やしても
-誤差 $10^{-2}$ から改善しない（古典は $5\times10^{-6}$）．\end{minipage}\end{center}\vspace{1em}]\makeatother
+誤差 $10^{-2}$ から改善しない（古典は $5\times10^{-6}$）．2 次元の縮む円でも，量子リザバーは古典より精度が低い．\end{minipage}\end{center}\vspace{1em}]\makeatother
 
 \section{はじめに}
 PINN \cite{raissi} は PDE の残差をネットワークのパラメータについて最小化して解を求める．量子版の QPINN は，
@@ -138,7 +138,9 @@ $M$ 点・$m=2^N$ 個の特徴量では，量子の読み出しは $O(MN^2\,2^N/
 $O(MN\,2^N)$ 回の演算で，両者の比は $N/\varepsilon^2\ge1$ である．
 \end{corollary}
 
-% AC-PRODUCT: Allen-Cahn N=8 product-RF vs QERC (results/allen_cahn_N8_product.json)
+数値でも確かめた．Allen--Cahn（$N=8$，5 シード）で，同じ角度 $\bm\theta(\bm x)$ を使う積の乱数特徴量（系 1）は
+$t=1$ の誤差 $8.1\times10^{-3}$，Haar リザバーは $1.0\times10^{-2}$ で，最良の倍率も 5 シードすべてで一致した．
+$2^N$ 次元の状態を使わない古典の $O(N)$ の特徴量で，量子リザバーと同等以上の精度が出る．
 
 \section{結果}
 \subsection{Phase-field 方程式}
@@ -169,16 +171,16 @@ Cahn--Hilliard：
 \begin{table}[t]
 \centering\small\setlength{\tabcolsep}{3pt}
 \caption{$t=1$ での相対 $L_2$ 誤差}
-\resizebox{\columnwidth}{!}{\begin{tabular}{lccc}
+\resizebox{\columnwidth}{!}{\begin{tabular}{lcccc}
 \toprule
-手法 & AC（$N=8$） & AC（$N=10$） & CH（$N=8$） \\
+手法 & AC（$N=8$） & AC（$N=10$） & CH（$N=8$） & CH（$N=10$）\\
 \midrule
-量子リザバー（最小二乗）& $1.0\times10^{-2}$ & $9.9\times10^{-3}$ & $5.0\times10^{-2}$ \\
-tanh（最小二乗）& $1.0\times10^{-3}$ & $\bm{5.3\times10^{-6}}$ & $\bm{6.9\times10^{-4}}$ \\
-Fourier（最小二乗）& $2.3\times10^{-3}$ & $3.4\times10^{-5}$ & $1.4\times10^{-3}$ \\
-変分 QPINN（学習）            & 0.76 & -- & -- \\
-古典 PINN（学習）& 0.13 & -- & -- \\
-適応 PINN \cite{wight} & $2.3\times10^{-2}$ & -- & $9.5\times10^{-3}$ \\
+量子リザバー（最小二乗）& $1.0\times10^{-2}$ & $9.9\times10^{-3}$ & $5.0\times10^{-2}$ & $6.1\times10^{-3}$\\
+tanh（最小二乗）& $1.0\times10^{-3}$ & $\bm{5.3\times10^{-6}}$ & $\bm{6.9\times10^{-4}}$ & $\bm{5.6\times10^{-7}}$\\
+Fourier（最小二乗）& $2.3\times10^{-3}$ & $3.4\times10^{-5}$ & $1.4\times10^{-3}$ & $2.6\times10^{-4}$\\
+変分 QPINN（学習）            & 0.76 & -- & -- & --\\
+古典 PINN（学習）& 0.13 & -- & -- & --\\
+適応 PINN \cite{wight} & $2.3\times10^{-2}$ & -- & \multicolumn{2}{c}{$9.5\times10^{-3}$}\\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -188,6 +190,7 @@ Fourier（最小二乗）& $2.3\times10^{-3}$ & $3.4\times10^{-5}$ & $1.4\times1
 一方で量子リザバーは特徴量を 256 から 1024 個に増やしても $10^{-2}$ で止まり，古典の乱数特徴量（$5\times10^{-6}$）との差は
 広がった．命題 2 のとおり $\mathcal F_\rho$ は角度の 1 次の三角関数の積でできており，空間の細かさは $N$ ではなく
 入力の倍率で決まるため，鋭い界面を表しにくい．
+Cahn--Hilliard でも同じで，$N=10$ では古典の tanh が $5.6\times10^{-7}$ まで下がるのに対し，量子リザバーは $6.1\times10^{-3}$ にとどまる．
 どの手法でも自由エネルギーは毎ステップ単調に減少し，Cahn--Hilliard の質量も $10^{-4}$ 以下のずれで保存された．
 また特徴量の行列は係数や初期条件によらないので，1 組の量子特徴量で 9 通りの Allen--Cahn 問題を解けた
 （実機なら回路の測定は 1 回で済む）．
@@ -206,6 +209,33 @@ $0.3\sin\pi x+0.2\cos3\pi x$ & 4.3e-2 & 2.3e-2 & 5.0e-3\\
 \end{tabular}
 \end{table}
 界面が鋭い（$D$ が小さい，界面が多い）ほど誤差が大きい．
+
+\subsection{2 次元の Allen--Cahn：縮む円}
+$(x,y)\in[-1,1]^2$（周期境界）で
+\begin{equation}
+\begin{aligned}
+  &u_t=\varepsilon^2\Delta u+u-u^3,\qquad u(0)=\tanh\frac{R_0-r}{\sqrt2\,\varepsilon},\\
+  &\varepsilon=0.05,\quad R_0=0.5
+\end{aligned}
+\end{equation}
+を $t=20$ まで解く．円形の相は界面張力で縮み，鋭い界面の極限では $R(t)^2=R_0^2-2\varepsilon^2t$ に従う．
+特徴量の入力は $(\cos\pi x,\sin\pi x,\cos\pi y,\sin\pi y)$，選点は $64\times64$ である．
+\begin{table}[t]
+\centering\small
+\caption{2 次元 Allen--Cahn：$t=20$ の相対 $L_2$ 誤差と円の半径（3 シード）}\label{tab:ac2d}
+\begin{tabular}{lccc}
+\toprule
+特徴量 & $N=8$ & $N=10$ & 半径（$N=10$）\\
+\midrule
+量子リザバー & $7.1\times10^{-2}$ & $3.5\times10^{-3}$ & 0.387\\
+tanh & $7.6\times10^{-2}$ & $2.6\times10^{-3}$ & 0.387\\
+Fourier & $\bm{5.2\times10^{-2}}$ & $\bm{2.1\times10^{-3}}$ & 0.387\\
+\bottomrule
+\end{tabular}
+\end{table}
+表\ref{tab:ac2d} のとおり，$N=10$ ではどの手法も半径を鋭い界面の極限（$\sqrt{0.15}=0.387$）どおりに再現し，自由エネルギーも単調に減少した．
+2 次元では界面が幅 約 0.07 と 1 次元より太く，量子リザバーと古典の差は 1.7 倍と小さい．ただし最良の倍率が 3 手法とも探索範囲の下の端だったため，
+倍率を下に広げた再計算を行っている（数値は暫定）．
 
 \subsection{ショットノイズ}
 実機では $p_k$ とその微分をショット測定で推定する．$p_k\approx2^{-N}$ なので相対ノイズは $\sqrt{2^N/S}$ で，
@@ -231,7 +261,7 @@ $\infty$ & $6.3\times10^{-4}$ & $\bm{2.1\times10^{-4}}$\\
   \item 精度の大部分は量子からではなく，非凸の最適化を線形の最小二乗に置き換えたことから来る．
   \item 量子リザバーの表現力はエンコーディングで決まり，同じ空間は古典で安く作れる．実機の読み出しはさらに高くつく．
   \item 古典の比較対象の調整（入力の倍率）で結論が 1 桁以上変わるので，掃引範囲と最良値が範囲の内側であることを報告すべきである．
-  \item 課題：ショットノイズ（エネルギー形で 3〜4 倍改善したが不十分），2 次元の PF 問題，問題に合わせて設計したリザバー．
+  \item 課題：ショットノイズ（エネルギー形で 3〜4 倍改善したが不十分），2 次元の Cahn--Hilliard と 3 次元，問題に合わせて設計したリザバー．
 \end{itemize}
 量子リザバー PINN は動く PDE ソルバーであり，変分 QPINN の最適化の失敗を避け，PF 方程式では学習ありの PINN より正確である．
 しかし公平に比べると，同じ解き方の古典の乱数特徴量と同等かそれ以下であり，量子の優位は示せない．

@@ -221,7 +221,8 @@ subspace is better than random ones.
 On the single TSV ($N=8$, 3 seeds), the product random features of Corollary~\ref{cor:classical} reach
 $3.5\times10^{-3}$ against $3.9\times10^{-3}$ for the Haar reservoir, with the same best input scale and the same
 per-seed ordering ($5.1/1.6/5.5\times10^{-3}$ versus $5.8/1.8/5.6\times10^{-3}$): the classical $O(N)$-cost
-features are at least as good.
+features are at least as good. The same holds on the Allen--Cahn equation (Sec.~\ref{sec:pf}; $N=8$, 5 seeds):
+$8.1\times10^{-3}$ for product features against $1.0\times10^{-2}$ for the reservoir, with the same best scale in every seed.
 
 \begin{remark}
 Proposition~\ref{prop:shots} concerns outcome probabilities. Observables with $O(1)$ expectation values
@@ -395,7 +396,20 @@ upper bounds.
 On the sharp Cahn--Hilliard benchmark ($N=8$, 5 seeds), tanh and Fourier features reach $6.9\times10^{-4}$ and
 $1.4\times10^{-3}$, more than ten times better than the best adaptive PINN of \citet{wight2021adaptive} ($9.5\times10^{-3}$);
 the quantum reservoir reaches $5.0\times10^{-2}$. Mass is conserved to $7\times10^{-6}$ (classical) and $3\times10^{-4}$
-(quantum). The smooth control is solved to $10^{-9}$--$10^{-10}$ by all models and does not discriminate between them.
+(quantum). At $N=10$ the gap widens: tanh features reach $5.6\times10^{-7}$, Fourier features
+$2.6\times10^{-4}$ (both at the upper edge of the sweep, hence upper bounds) and the reservoir $6.1\times10^{-3}$.
+The smooth control is solved to $10^{-9}$--$10^{-10}$ by all models and does not discriminate between them.
+
+\subsection{Two dimensions: a shrinking circle}
+On $(x,y)\in[-1,1]^2$ (periodic) we solve $u_t=\varepsilon^2\Delta u+u-u^3$ with
+$u(0)=\tanh\big((R_0-r)/(\sqrt2\varepsilon)\big)$, $\varepsilon=0.05$, $R_0=0.5$, up to $t=20$, with features of
+$(\cos\pi x,\sin\pi x,\cos\pi y,\sin\pi y)$ on $64\times64$ points. In the sharp-interface limit the circle shrinks as
+$R(t)^2=R_0^2-2\varepsilon^2t$. At $N=10$ (3 seeds) the errors at $t=20$ are $3.5\times10^{-3}$ (reservoir),
+$2.6\times10^{-3}$ (tanh) and $2.1\times10^{-3}$ (Fourier); all models reproduce the radius $R=0.387=\sqrt{0.15}$ and keep the
+energy decreasing. At $N=8$ all are at $5$--$8\times10^{-2}$. The wider interface (about $0.07$) narrows the gap to the
+reservoir to a factor of 1.7, but the reservoir is still the least accurate. The best scales lie at the lower edge of the
+sweep, so these values are provisional; a re-run with smaller scales is under way.
+% PROVISIONAL: 2D best scales at the lower edge (job 17).
 
 Because the feature matrices do not depend on the coefficients or the initial condition, one quantum feature set
 solves families of problems: with the same $N=8$ reservoir we solved nine Allen--Cahn problems (three initial conditions,
