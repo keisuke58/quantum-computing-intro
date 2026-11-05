@@ -400,6 +400,16 @@ the quantum reservoir reaches $5.0\times10^{-2}$. Mass is conserved to $7\times1
 $2.6\times10^{-4}$ (both at the upper edge of the sweep, hence upper bounds) and the reservoir $6.1\times10^{-3}$.
 The smooth control is solved to $10^{-9}$--$10^{-10}$ by all models and does not discriminate between them.
 
+\paragraph{With data.} Data-assisted PINNs add measured or simulated values of the solution to the loss. We add 1000
+reference values (100 random $x$ at each of $t=0.1,0.2,\dots,1$): to the loss of the trained models (weight 100) and as
+extra least-squares rows at those time steps (weights 0.1 and 1 relative to $1/\Delta t$). The data rescue the trained
+models (3 seeds): the PINN improves from 0.13 to $7.3\times10^{-4}$ and the variational QPINN from 0.76 to
+$5.2\times10^{-2}$, which is still 70 times worse than the PINN and costs 1.8\,h per seed on an RTX 4090 against 7\,min.
+The least-squares solvers hardly change (same seeds 0--2, weight 1): reservoir $1.15\times10^{-2}\to1.12\times10^{-2}$,
+tanh $9.7\times10^{-4}\to1.0\times10^{-3}$, Fourier $1.9\times10^{-3}\to1.9\times10^{-3}$. Their error is set by what the
+features can represent, not by the information they are given: the best least-squares fit of the reference at $t=1$ by the
+same reservoir features ($6.9\times10^{-3}$, seed 0) is already close to its PDE error ($9.0\times10^{-3}$).
+
 \subsection{Two dimensions: a shrinking circle}
 On $(x,y)\in[-1,1]^2$ (periodic) we solve $u_t=\varepsilon^2\Delta u+u-u^3$ with
 $u(0)=\tanh\big((R_0-r)/(\sqrt2\varepsilon)\big)$, $\varepsilon=0.05$, $R_0=0.5$, up to $t=20$, with features of
