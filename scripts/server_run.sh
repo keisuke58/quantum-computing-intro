@@ -9,7 +9,8 @@
 #     bigN     量子ビット数を増やした TSV 単体（N=10, 12，3 シード）
 #     tsv3d_plane  3D unit cell TSV vs approx. plane-strain reference (N=8,10)
 #     tsv3d    3D unit cell TSV vs Abaqus reference (needs results/abaqus from fifa)
-#     edge_single / edge_axisym / edge_3d / edge_plane  re-runs with wider scale grids (best scale was at the grid edge)
+#     edge_single / edge_axisym / edge_3d / edge_plane / edge_periodic  re-runs
+#     pf_ac / pf_ch  phase field: Allen-Cahn and Cahn-Hilliard (PFN=8|10, PFSEEDS) with wider scale grids (best scale was at the grid edge)
 #     axisym   軸対称 (r, z) の TSV 1 本（MORE-Stress の寸法，上下固定 / 上面自由，5 シード）
 #   接続が切れても止まらないよう，nohup で裏で動かす．進み具合: tail -f logs/<ジョブ名>.log
 set -euo pipefail
@@ -53,6 +54,32 @@ run_job() {
       for N in 8 10; do
         python 44_tsv_3d.py --ref plane --bc clamped --N $N --models QERC-Haar,MLP2-RF --scales 0.25,0.5 --seeds 3 --out results/server/tsv_3d_plane_N${N}_low.json
       done ;;
+    edge_periodic)
+      python 34_tsv_periodic.py --L 3 --models Fourier --scales 32,64,128 --seeds 5 --out results/server/tsv_periodic_L3_fourier_wide.json ;;
+    pf_ac)
+      python 52_allen_cahn_qerc.py --D 1e-4 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --out results/server/allen_cahn_N${PFN:-8}.json ;;
+    pf_ch)
+      python 54_cahn_hilliard_qerc.py --eps2 0.02 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --out results/server/cahn_hilliard_N${PFN:-8}.json ;;
+    pf_ch_wz)
+      python 54_cahn_hilliard_qerc.py --eps2 1e-6 --g2 0.01 --ic cos2 --ref_modes 1024 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --out results/server/cahn_hilliard_wz_N${PFN:-8}.json ;;
+    pf_ac_vqpinn)
+      python 56_ac_vqpinn.py --models VQPINN,PINN-small,PINN --N 6 --L 6 --steps 20000 --seeds 3 --out results/server/ac_vqpinn.json ;;
+    pf_ac2d)
+      python -u 59_ac2d_qerc.py --check
+      python -u 59_ac2d_qerc.py --N ${PFN:-8} --seeds ${PFSEEDS:-3} --out results/server/ac2d_N${PFN:-8}.json ;;
+    pf_ac_product)
+      python -u 52_allen_cahn_qerc.py --D 1e-4 --N 8 --seeds 5 --models QERC-Haar,product-RF --scales 2,4,8,16 --out results/server/allen_cahn_N8_product.json ;;
+    pf_ac2d_low)
+      python -u 59_ac2d_qerc.py --N ${PFN:-8} --seeds 3 --scales 0.25,0.5,1 --out results/server/ac2d_N${PFN:-8}_low.json ;;
+    pf_ac_data)
+      for W in 0.1 1; do
+        python -u 52_allen_cahn_qerc.py --D 1e-4 --N 8 --seeds 3 --n_data 1000 --w_data $W --out results/server/allen_cahn_N8_data_w$W.json
+      done
+      python -u 56_ac_vqpinn.py --models VQPINN,PINN --N 6 --L 6 --steps 20000 --seeds 3 --n_data 1000 --out results/server/ac_vqpinn_data.json ;;
+    pf_vq_bench)
+      python -u 56_ac_vqpinn.py --models VQPINN,PINN --N 6 --L 6 --seeds 1 --n_data 1000 --bench --out results/server/ac_vqpinn_bench.json ;;
+    pf_ac_data_vq)
+      python -u 56_ac_vqpinn.py --models VQPINN,PINN --N 6 --L 6 --steps 20000 --seeds 3 --n_data 1000 --out results/server/ac_vqpinn_data.json ;;
     bigN)
       for N in 10 12; do
         python 30_qerc_tsv_single.py --N $N --seeds 3 --out results/server/tsv_single_N${N}.json
