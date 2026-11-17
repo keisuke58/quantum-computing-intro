@@ -96,15 +96,15 @@ run_job() {
       for PDE in burgers ac; do
         .venv_te/bin/python -u 67_te_qpinn_authors.py --repo "${TE_REPO:-$HOME/te-qpinns}" --pde $PDE --smoke --seeds 1 --outer 2
       done ;;
-    te_burgers|te_ac)
+    te_burgers|te_ac|te_ch)
       # TEMODEL = TE | fixed | classical (one qsub each; commas cannot go through qsub -v). Finished runs are skipped on resubmission.
       TEP=${1#te_}
       case "${TEMODEL:?set TEMODEL=TE|fixed|classical}:$TEP" in
         TE:*) TEM=TE ;;
         fixed:burgers) TEM=TOWER,NONE ;;
-        fixed:ac) TEM=CHEBYSHEV,NONE ;;
+        fixed:ac|fixed:ch) TEM=CHEBYSHEV,NONE ;;
         classical:burgers) TEM=PINN-3x10,PINN-2x13,TE-twin ;;
-        classical:ac) TEM=PINN-match,PINN-4x64,TE-twin ;;
+        classical:ac|classical:ch) TEM=PINN-match,PINN-4x64,TE-twin ;;
         *) echo "unknown TEMODEL=$TEMODEL"; return 1 ;;
       esac
       .venv_te/bin/python -u 67_te_qpinn_authors.py --repo "${TE_REPO:-$HOME/te-qpinns}" --pde $TEP --models $TEM --seeds ${TESEEDS:-5} --out results/server/te_authors_${TEP}_${TEMODEL}.json ;;

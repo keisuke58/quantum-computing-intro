@@ -52,10 +52,11 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | 22 | `te_smoke` | **動作確認**（小さな格子で 2 ステップだけ．結果ではない）．`qsub -v JOB=te_smoke scripts/pbs_job.sh` | ログに `'device': 'cuda'` と，Burgers・Allen–Cahn それぞれ 6 行のモデルの行 | 5 分 | 未実行 |
 | 23 | `te_burgers` | **元論文の再現：Burgers**（著者の設定のまま：4 量子ビット，5 層，L-BFGS 500 ステップ）．5 シード．3 本に分けて投げる：`qsub -v JOB=te_burgers,TEMODEL=TE scripts/pbs_job.sh`，`TEMODEL=fixed`，`TEMODEL=classical` | `results/server/te_authors_burgers_TE.json`，`_fixed.json`，`_classical.json`（＋ `_fields.npz`，`te_authors_ref_*.npy`） | TE と fixed は 1 シード 1〜5 時間，classical は全部で 1 時間ほど | 未実行 |
 | 24 | `te_ac` | **本番：Allen–Cahn**（著者の Allen–Cahn のノートブックのまま：因果性つきの学習，200 × 200 点，L-BFGS 最大 300 ステップ）．5 シード．同じく 3 本：`qsub -v JOB=te_ac,TEMODEL=TE scripts/pbs_job.sh`，`TEMODEL=fixed`，`TEMODEL=classical` | `results/server/te_authors_ac_TE.json`，`_fixed.json`，`_classical.json`（＋ `_fields.npz`） | TE と fixed は 1 シード 2〜10 時間（長くてよい），classical は数時間 | 未実行 |
+| 25 | `te_ch` | **Cahn–Hilliard（Wight & Zhao の問題）を同じ枠組みで**．著者のコードに CH は無いので，損失（混合形：φ と μ を別々のネットワークで表す）だけこちらで書いた．回路・埋め込みの NN・格子・因果性つきの学習・L-BFGS は 24 番と同じ（著者の Allen–Cahn の設定）．5 シード．3 本：`qsub -v JOB=te_ch,TEMODEL=TE scripts/pbs_job.sh`，`TEMODEL=fixed`，`TEMODEL=classical`．**24 番が終わってから**投げる（`git pull` を先に） | `results/server/te_authors_ch_TE.json`，`_fixed.json`，`_classical.json`（＋ `_fields.npz`） | 24 番の 2 倍ほど（ネットワークが 2 つ） | 未実行 |
 
 （`seeds5` / `tsv` / `array` は Claude 側の環境で回したので不要）
 
-## 21〜24 番について（学習する QPINN の埋め込みの比較，著者のコードをそのまま使う）
+## 21〜25 番について（学習する QPINN の埋め込みの比較，著者のコードをそのまま使う）
 
 村松先生の提案（2026-11-17）：固定の埋め込み，表現力を高めた埋め込み，パラメータ数をそろえた古典 NN で性能を比べる．
 
@@ -73,7 +74,7 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | `PINN-4x64` | 大きめの古典 PINN（参考） |
 | `TE-twin` | `TE` の回路だけを，同じ形の古典の関数（角度の三角関数の積の線形和）に置き換えたもの（こちらで追加） |
 
-- 順番：21 番（1 回だけ）→ 22 番 → 23 番（3 本同時）→ 24 番（3 本同時）．自分の GPU ジョブは同時に 4 本までにする
+- 順番：21 番（1 回だけ）→ 22 番 → 23 番（3 本同時）→ 24 番（3 本同時）→ 25 番（3 本同時）．自分の GPU ジョブは同時に 4 本までにする
 - 23・24 番は `TEMODEL` を必ず付ける（付けないとすぐ止まる）．ログは `logs/pbs_te_ac_<TEMODEL>.log` など
 - 途中で止まっても，同じコマンドで投げ直せば終わったシードは飛ばして続きから回る（結果は 1 シードごとに保存）
 - 21 番で「pinned versions did not install」と出たら，新しい版で入っている．そのまま進めてよい（版はログと結果に記録される）

@@ -29,6 +29,8 @@ Models
                contains the TE-QPINN.
 Problems
   burgers   their Burgers notebooks (4 qubits, 5 layers, FNN 2 x 10, 100 x 50 grid, 500 outer L-BFGS steps)
+  ch        Cahn-Hilliard of Wight & Zhao (2021) in mixed form: the loss is ours (see install_ch), everything else
+            (circuit, embedding network, grid, causality training, optimiser) is their Allen-Cahn set-up
   ac        their Allen-Cahn notebook with causality training (Raissi's equation, 4 qubits, 5 layers, FNN 1 x 20,
             200 x 200 grid, initial-value weight 1e3, eps = 200, up to 300 outer L-BFGS steps)
 
@@ -41,6 +43,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 COMMIT = "f7d0177ed33ebd674fe9ed0fd846d18a5bf0129e"
+CH_G1, CH_G2 = 1e-6, 1e-2            # Cahn-Hilliard of Wight & Zhao (2021): gamma_1, gamma_2
 NB_CMP = "PDE-Example/Burgers/burgers_pinn_comparison.ipynb"     # TE-QPINN vs PINN (paper Fig. 14)
 NB_THS = "PDE-Example/Burgers/burgers_thesis.ipynb"              # embeddings (paper Fig. 11)
 NB_AC = "CausalityTraining/allen_cahn.ipynb"
@@ -98,7 +101,7 @@ def etdrk4(u0_hat, Lop, Nf, dt, n_steps, every):
 def reference(pde, t_grid, x_grid, n_modes=None, sub=None):
     """u on the authors' (t, x) grid (t uniform from 0). Both problems are 2-periodic in x on [-1, 1]:
     Allen-Cahn by its boundary condition; Burgers because -sin(pi x) is odd, so u(+-1) = 0 is kept."""
-    n_modes = n_modes or (1024 if pde == "ac" else 4096)
+    n_modes = n_modes or (4096 if pde == "burgers" else 1024)
     xs = -1 + 2 * np.arange(n_modes) / n_modes
     k = np.fft.fftfreq(n_modes, d=2 / n_modes) * 2 * np.pi
     dT = float(t_grid[1] - t_grid[0])
@@ -106,6 +109,9 @@ def reference(pde, t_grid, x_grid, n_modes=None, sub=None):
     if pde == "ac":
         Lop = -1e-4 * k**2 + 5.0; Nf = lambda v: -5 * np.fft.fft(np.real(np.fft.ifft(v)) ** 3)
         u0 = xs**2 * np.cos(np.pi * xs)
+    elif pde == "ch":     # phi_t = (G2 (phi^3 - phi) - G1 phi_xx)_xx
+        Lop = CH_G2 * k**2 - CH_G1 * k**4; Nf = lambda v: -CH_G2 * k**2 * np.fft.fft(np.real(np.fft.ifft(v)) ** 3)
+        u0 = -np.cos(2 * np.pi * xs)
     else:
         Lop = -(0.01 / np.pi) * k**2; Nf = lambda v: -0.5j * k * np.fft.fft(np.real(np.fft.ifft(v)) ** 2)
         u0 = -np.sin(np.pi * xs)
@@ -120,7 +126,7 @@ def cached_reference(pde, t_grid, x_grid, smoke, outdir):
     fn = os.path.join(outdir, f"te_authors_ref_{pde}_{len(t_grid)}x{len(x_grid)}.npy")
     if os.path.exists(fn):
         return np.load(fn)
-    t0 = time.time(); u = reference(pde, t_grid, x_grid, sub=20 if smoke else None)
+    t0 = time.time(); u = reference(pde, t_grid, x_grid, sub=20 if smoke and pde != "ch" else None)   # CH is stiff: always dt = 1e-5
     print(f"reference {pde} {u.shape} {time.time() - t0:.0f}s", flush=True)
     if not smoke:
         os.makedirs(os.path.dirname(fn), exist_ok=True)
@@ -172,7 +178,7 @@ def n_par(params):
 def make_model(name, pde, A, T, P, torch):
     """returns (model, params, angle_fn or None, namespace whose loss functions see this model as their global)"""
     dev = A["device"]; nq, nl = A["N_WIRES"], A["N_LAYERS"]
-    two_pi = 2 * torch.pi if pde == "ac" else 1.0           # theta init: 2 pi rand (their AC cell) / rand (their Burgers cells)
+    two_pi = 2 * torch.pi if pde != "burgers" else 1.0           # theta init: 2 pi rand (their AC cell) / rand (their Burgers cells)
     new_theta = lambda: (two_pi * torch.rand(nl, nq, 3, device=dev)).clone().detach().requires_grad_(True)
     db = A["domain_bounds"]
     resc = lambda x: 1.9 * (x - db[0]) / (db[1] - db[0]) - 0.95
@@ -209,6 +215,70 @@ def make_model(name, pde, A, T, P, torch):
             return f @ C + b[0]
         return twin, [*net.parameters(), C, b], ang
     raise ValueError(name)
+
+
+def bound(name, model, ang, A, T, P):
+    """Freeze the globals the authors' model functions read (theta, basisNet, EMBEDDING, pinn), so that two
+    networks of the same kind can coexist (Cahn-Hilliard needs one for phi and one for the chemical potential)."""
+    if name == "TE":
+        th, net = A["theta"], A["basisNet"]
+
+        def use():
+            A["theta"], A["basisNet"] = th, net
+    elif name in ("NONE", "CHEBYSHEV", "TOWER"):
+        th, emb = T["theta"], T["EMBEDDING"]
+
+        def use():
+            T["theta"], T["EMBEDDING"] = th, emb
+    elif name.startswith("PINN"):
+        pn = P["pinn"]
+
+        def use():
+            P["pinn"] = pn
+    else:
+        return model, ang
+
+    def f(x):
+        use(); return model(x)
+
+    def g(x):
+        use(); return ang(x)
+    return f, (g if ang is not None else None)
+
+
+def install_ch(A, torch, phi, m):
+    """Cahn-Hilliard in mixed form, in the structure of the authors' Allen-Cahn loss cell (ours; they have no CH):
+        phi_t = G2 m_xx,   m = phi^3 - phi - (G1 / G2) phi_xx      (m = mu / G2, so that both outputs are O(1))
+    phi and m are two separate networks, as the authors use two TE-QPINNs for the two fields of the cavity flow.
+    Their loss_fnc, weighted_temporal_loss_fnc and compute_temporal_weights are kept; the three functions they
+    call are replaced: the residual per time slice, the periodic boundary term and the initial-value term."""
+    ic, top, bot, inter = (A[k] for k in ("init_val_colloc", "periodic_boundary_top_colloc",
+                                          "periodic_boundary_bottom_colloc", "interior_colloc"))
+    nt, nx = A["T_COLOC_POINTS"], A["X_COLOC_POINTS"]
+    d = lambda u, x: torch.autograd.grad(u, x, grad_outputs=torch.ones_like(u), create_graph=True)[0]
+
+    def boundary_initial_values():
+        return torch.mean((phi(ic) - (-torch.cos(2 * torch.pi * ic[:, 1]))) ** 2)
+
+    def boundary_periodic():
+        res = 0.0
+        for f in (phi, m):
+            u1 = f(top); u3 = f(bot)
+            res = res + torch.mean((u1 - u3) ** 2) + torch.mean((d(u1, top)[:, 1] - d(u3, bot)[:, 1]) ** 2)
+        return res
+
+    def temporal_loss_slices_fnc():
+        p = phi(inter); dp = d(p, inter)
+        p_t = dp[:, 0]; p_xx = d(dp[:, 1], inter)[:, 1]
+        q = m(inter); q_xx = d(d(q, inter)[:, 1], inter)[:, 1]
+        res = (p_t - CH_G2 * q_xx) ** 2 + (q - p**3 + p + (CH_G1 / CH_G2) * p_xx) ** 2
+        loss_tmp = torch.zeros(nt, device=A["device"])
+        loss_tmp[0] = A["INITIAL_VALUE_SCALING"] * boundary_initial_values()
+        loss_tmp[1:] = torch.mean(res.reshape(nt - 1, nx - 2), axis=1)
+        return loss_tmp
+    A["boundary_initial_values"] = boundary_initial_values
+    A["boundary_periodic"] = boundary_periodic
+    A["temporal_loss_slices_fnc"] = temporal_loss_slices_fnc
 
 
 # ---------------- training loops (retyped from the authors' loop cells) ----------------
@@ -268,7 +338,7 @@ def train_ac(A, torch, model, params, outer, mse_fn):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", default=os.path.expanduser("~/te-qpinns"))
-    ap.add_argument("--pde", default="burgers", choices=["burgers", "ac"])
+    ap.add_argument("--pde", default="burgers", choices=["burgers", "ac", "ch"])
     ap.add_argument("--models", default=None)
     ap.add_argument("--seeds", type=int, default=3, help="runs per model; run i uses torch.manual_seed(42 + i) (theirs: 42)")
     ap.add_argument("--outer", type=int, default=None, help="outer L-BFGS steps (theirs: 500 Burgers, 300 Allen-Cahn)")
@@ -301,6 +371,12 @@ def main():
                 continue
             torch.manual_seed(seed)
             model, params, ang = make_model(name, a.pde, A, T, P, torch)
+            if a.pde == "ch":      # a second network of the same kind for m = mu / G2
+                model, ang = bound(name, model, ang, A, T, P)
+                m_model, m_params, _ = make_model(name, a.pde, A, T, P, torch)
+                m_model, _ = bound(name, m_model, None, A, T, P)
+                params = params + m_params
+                install_ch(A, torch, model, m_model)
             print(f"{a.pde} {name} seed={seed} params={n_par(params)}", flush=True)
 
             def predict():
