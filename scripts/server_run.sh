@@ -80,6 +80,18 @@ run_job() {
       python -u 56_ac_vqpinn.py --models VQPINN,PINN --N 6 --L 6 --seeds 1 --n_data 1000 --bench --out results/server/ac_vqpinn_bench.json ;;
     pf_ac_data_vq)
       python -u 56_ac_vqpinn.py --models VQPINN,PINN --N 6 --L 6 --steps 20000 --seeds 3 --n_data 1000 --out results/server/ac_vqpinn_data.json ;;
+    qe_bench)
+      python -u 66_qpinn_embeddings.py --pde ac --N 6 --L 5 --seeds 1 --bench ;;
+    qe_burgers)
+      python -u 66_qpinn_embeddings.py --pde burgers --opt lbfgs --steps 5000 --N 4 --L 5 --seeds 3 --out results/server/qpinn_emb_burgers_lbfgs.json ;;
+    qe_ac|qe_ac_lbfgs)
+      # QEMODEL = Q-fixed | Q-TE | classical (one qsub each; commas cannot go through qsub -v)
+      case "${QEMODEL:?set QEMODEL=Q-fixed|Q-TE|classical}" in
+        classical) QEM=TE-twin,PINN-match,PINN ;;
+        *) QEM=$QEMODEL ;;
+      esac
+      if [ "$1" = qe_ac ]; then QEO="--opt adam --steps 20000"; QET=adam; else QEO="--opt lbfgs --steps 10000"; QET=lbfgs; fi
+      python -u 66_qpinn_embeddings.py --pde ac --N 6 --L 5 --seeds 5 $QEO --models $QEM --out results/server/qpinn_emb_ac_${QET}_${QEMODEL}.json ;;
     bigN)
       for N in 10 12; do
         python 30_qerc_tsv_single.py --N $N --seeds 3 --out results/server/tsv_single_N${N}.json
