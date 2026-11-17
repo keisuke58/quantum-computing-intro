@@ -4,6 +4,7 @@
 #   Usage (on copaam, from the repo root):
 #     qsub -v JOB=bigN scripts/pbs_job.sh
 #     qsub -v JOB=seeds5 -l nodes=1:ppn=2:gpus=1:stuttgart01 scripts/pbs_job.sh   # other node
+#     qsub -v JOB=te_smoke -l nodes=1:ppn=6:stuttgart02 scripts/pbs_job.sh        # CPU only (no gpus=1), 6 threads
 #   JOB uses the same names as scripts/server_run.sh (seeds5 / tsv / array / shots / bigN / axisym).
 #   Log: logs/pbs_<JOB>.log. Progress: qstat -a, tail -f logs/pbs_<JOB>.log
 #PBS -N qpinn
@@ -21,13 +22,18 @@ export XLA_PYTHON_CLIENT_PREALLOCATE=false
 NT=${PBS_NUM_PPN:-2}
 export OMP_NUM_THREADS=$NT OPENBLAS_NUM_THREADS=$NT MKL_NUM_THREADS=$NT NUMEXPR_NUM_THREADS=$NT
 export XLA_FLAGS="${XLA_FLAGS:-} --xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=$NT"
-export CUDA_VISIBLE_DEVICES=$(grep -oE "gpu[0-9]+" "$PBS_GPUFILE" | head -1 | grep -oE "[0-9]+")
+if [ -s "${PBS_GPUFILE:-}" ]; then
+  export CUDA_VISIBLE_DEVICES=$(grep -oE "gpu[0-9]+" "$PBS_GPUFILE" | head -1 | grep -oE "[0-9]+")
+else
+  export CUDA_VISIBLE_DEVICES=""              # submitted without gpus=1: hide the node's GPUs and run on the CPU
+  echo "=== no GPU reserved: CPU-only run with $NT threads (the JAX cuInit traceback below is expected) ==="
+fi
 source .venv/bin/activate
 python -c "import jax; print('devices:', jax.devices())"
 
 # Shared GPUs (about 15 people in the lab): do not start on a GPU someone else is already using.
 # Jobs started outside PBS (Jupyter, ssh) can land on a GPU that PBS gave to us.
-GPU_UUID=$(nvidia-smi -i "$CUDA_VISIBLE_DEVICES" --query-gpu=uuid --format=csv,noheader 2>/dev/null)
+GPU_UUID=$([ -n "$CUDA_VISIBLE_DEVICES" ] && nvidia-smi -i "$CUDA_VISIBLE_DEVICES" --query-gpu=uuid --format=csv,noheader 2>/dev/null)
 foreign_on_gpu() {
   local pid owner
   for pid in $(nvidia-smi --query-compute-apps=gpu_uuid,pid --format=csv,noheader 2>/dev/null \
@@ -37,7 +43,7 @@ foreign_on_gpu() {
   done
   return 1
 }
-if who=$(foreign_on_gpu); then
+if [ -n "$GPU_UUID" ] && who=$(foreign_on_gpu); then
   echo "=== GPU $CUDA_VISIBLE_DEVICES is already used by $who; not starting (resubmit later) ==="
   exit 3
 fi
