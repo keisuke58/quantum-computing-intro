@@ -20,6 +20,8 @@ Models
   CHEBYSHEV    fixed embedding Ry(2 arccos x_c)                                             (their "CHEBYSHEV")
   TOWER        their "TOWER_CHEBYSHEV" as written (in the public code the tower factor is reset to 1 on every
                qubit, so it gives the same angles as CHEBYSHEV; kept because the paper's tables use it)
+  NONE-match, CHEBYSHEV-match, TOWER-match   the same fixed embeddings with more variational layers, so that the
+               parameter count matches the TE-QPINN (20 layers = 240 for Burgers, 17 layers = 204 for Allen-Cahn)
   PINN-3x10 / PINN-2x13   their classical PINNs for Burgers (261 / 235 parameters; the TE-QPINN has 244)
   PINN-match   Allen-Cahn: their FNN class sized to the TE-QPINN parameter count (2 x 12 = 205 vs 204)
   PINN-4x64    their FNN class, 4 x 64 (reference size)
@@ -43,6 +45,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 COMMIT = "f7d0177ed33ebd674fe9ed0fd846d18a5bf0129e"
+FIXED = ("NONE", "CHEBYSHEV", "TOWER")
 CH_G1, CH_G2 = 1e-6, 1e-2            # Cahn-Hilliard of Wight & Zhao (2021): gamma_1, gamma_2
 NB_CMP = "PDE-Example/Burgers/burgers_pinn_comparison.ipynb"     # TE-QPINN vs PINN (paper Fig. 14)
 NB_THS = "PDE-Example/Burgers/burgers_thesis.ipynb"              # embeddings (paper Fig. 11)
@@ -189,9 +192,15 @@ def make_model(name, pde, A, T, P, torch):
         A["theta"] = new_theta(); A["basisNet"] = emb_net()
         ang = lambda x: A["basisNet"](resc(x)) * resc(x)[:, comp]
         return A["_model_te"], [A["theta"], *A["basisNet"].parameters()], ang
-    if name in ("NONE", "CHEBYSHEV", "TOWER"):
-        T["EMBEDDING"] = {"TOWER": "TOWER_CHEBYSHEV"}.get(name, name)
-        T["theta"] = new_theta()
+    if name.split("-")[0] in FIXED:
+        base = name.split("-")[0]
+        T["EMBEDDING"] = {"TOWER": "TOWER_CHEBYSHEV"}.get(base, base)
+        # "-match": more variational layers, so that the parameter count matches the TE-QPINN (their circuit
+        # reads the global N_LAYERS when it is called, so only the number is changed, not their code)
+        T["N_LAYERS"] = nl
+        if name.endswith("-match"):     # (only here: building the network draws random numbers)
+            T["N_LAYERS"] = round(n_par([torch.zeros(nl, nq, 3), *emb_net().parameters()]) / (3 * nq))
+        T["theta"] = (two_pi * torch.rand(T["N_LAYERS"], nq, 3, device=dev)).clone().detach().requires_grad_(True)
         return T["model"], [T["theta"]], None
     if name.startswith("PINN"):
         if name == "PINN-match":
@@ -225,11 +234,11 @@ def bound(name, model, ang, A, T, P):
 
         def use():
             A["theta"], A["basisNet"] = th, net
-    elif name in ("NONE", "CHEBYSHEV", "TOWER"):
-        th, emb = T["theta"], T["EMBEDDING"]
+    elif name.split("-")[0] in FIXED:
+        th, emb, nlay = T["theta"], T["EMBEDDING"], T["N_LAYERS"]
 
         def use():
-            T["theta"], T["EMBEDDING"] = th, emb
+            T["theta"], T["EMBEDDING"], T["N_LAYERS"] = th, emb, nlay
     elif name.startswith("PINN"):
         pn = P["pinn"]
 
@@ -384,7 +393,7 @@ def main():
                     return model(dom).detach().double().cpu().numpy().reshape(len(tg), len(xg))
             t0 = time.time()
             if a.pde == "burgers":
-                hist, extra = train_burgers(A, T, torch, model, params, name in ("NONE", "CHEBYSHEV", "TOWER"), outer)
+                hist, extra = train_burgers(A, T, torch, model, params, name.split("-")[0] in FIXED, outer)
             else:
                 hist, extra = train_ac(A, torch, model, params, outer,
                                        lambda: float(np.mean((predict() - ref) ** 2)))

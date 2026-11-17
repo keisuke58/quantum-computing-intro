@@ -53,6 +53,7 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | 23 | `te_burgers` | **元論文の再現：Burgers**（著者の設定のまま：4 量子ビット，5 層，L-BFGS 500 ステップ）．5 シード．3 本に分けて投げる：`qsub -v JOB=te_burgers,TEMODEL=TE scripts/pbs_job.sh`，`TEMODEL=fixed`，`TEMODEL=classical` | `results/server/te_authors_burgers_TE.json`，`_fixed.json`，`_classical.json`（＋ `_fields.npz`，`te_authors_ref_*.npy`） | TE と fixed は 1 シード 1〜5 時間，classical は全部で 1 時間ほど | 未実行 |
 | 24 | `te_ac` | **本番：Allen–Cahn**（著者の Allen–Cahn のノートブックのまま：因果性つきの学習，200 × 200 点，L-BFGS 最大 300 ステップ）．5 シード．同じく 3 本：`qsub -v JOB=te_ac,TEMODEL=TE scripts/pbs_job.sh`，`TEMODEL=fixed`，`TEMODEL=classical` | `results/server/te_authors_ac_TE.json`，`_fixed.json`，`_classical.json`（＋ `_fields.npz`） | TE と fixed は 1 シード 2〜10 時間（長くてよい），classical は数時間 | 未実行 |
 | 25 | `te_ch` | **Cahn–Hilliard（Wight & Zhao の問題）を同じ枠組みで**．著者のコードに CH は無いので，損失（混合形：φ と μ を別々のネットワークで表す）だけこちらで書いた．回路・埋め込みの NN・格子・因果性つきの学習・L-BFGS は 24 番と同じ（著者の Allen–Cahn の設定）．5 シード．3 本：`qsub -v JOB=te_ch,TEMODEL=TE scripts/pbs_job.sh`，`TEMODEL=fixed`，`TEMODEL=classical`．**24 番が終わってから**投げる（`git pull` を先に） | `results/server/te_authors_ch_TE.json`，`_fixed.json`，`_classical.json`（＋ `_fields.npz`） | 24 番の 2 倍ほど（ネットワークが 2 つ） | 未実行 |
+| 26 | `te_*`（`TEMODEL=fixedmatch`） | **固定の埋め込みで，パラメータ数を TE-QPINN にそろえたもの**（変分回路を深くする：Burgers は 20 層 = 240，Allen–Cahn・CH は 17 層 = 204．著者の回路のコードは層数を変えるだけ）．5 シード．`git pull` してから 3 本：`qsub -v JOB=te_burgers,TEMODEL=fixedmatch scripts/pbs_job.sh`，`JOB=te_ac,TEMODEL=fixedmatch`，`JOB=te_ch,TEMODEL=fixedmatch`．GPU が空きしだい，23〜25 番と並べてよい（同時に 4 本まで） | `results/server/te_authors_burgers_fixedmatch.json`，`te_authors_ac_fixedmatch.json`，`te_authors_ch_fixedmatch.json` | 同じ問題の fixed の 3〜4 倍 | 未実行 |
 
 （`seeds5` / `tsv` / `array` は Claude 側の環境で回したので不要）
 
@@ -70,6 +71,7 @@ push できないときは `results/server/*.json` をチャットにアップ�
 |---|---|
 | `TE` | 学習する埋め込み（小さな NN が量子ビットごとの倍率を出す）＋ 変分回路．著者の TE-QPINN |
 | `NONE` / `CHEBYSHEV` / `TOWER` | 固定の埋め込み（座標をそのまま／Chebyshev 型）＋ 同じ変分回路．著者のコードにある選択肢 |
+| `NONE-match` など | 同じ固定の埋め込みで，変分回路を深くしてパラメータ数を `TE` にそろえたもの（26 番） |
 | `PINN-3x10` / `PINN-2x13` / `PINN-match` | パラメータ数をそろえた古典 PINN（著者の FNN クラス） |
 | `PINN-4x64` | 大きめの古典 PINN（参考） |
 | `TE-twin` | `TE` の回路だけを，同じ形の古典の関数（角度の三角関数の積の線形和）に置き換えたもの（こちらで追加） |
