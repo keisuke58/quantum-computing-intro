@@ -54,6 +54,7 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | 24 | `te_ac` | **本番：Allen–Cahn**（著者の Allen–Cahn のノートブックのまま：因果性つきの学習，200 × 200 点，L-BFGS 最大 300 ステップ）．5 シード．同じく 3 本：`qsub -v JOB=te_ac,TEMODEL=TE scripts/pbs_job.sh`，`TEMODEL=fixed`，`TEMODEL=classical` | `results/server/te_authors_ac_TE.json`，`_fixed.json`，`_classical.json`（＋ `_fields.npz`） | TE と fixed は 1 シード 2〜10 時間（長くてよい），classical は数時間 | 未実行 |
 | 25 | `te_ch` | **Cahn–Hilliard（Wight & Zhao の問題）を同じ枠組みで**．著者のコードに CH は無いので，損失（混合形：φ と μ を別々のネットワークで表す）だけこちらで書いた．回路・埋め込みの NN・格子・因果性つきの学習・L-BFGS は 24 番と同じ（著者の Allen–Cahn の設定）．5 シード．3 本：`qsub -v JOB=te_ch,TEMODEL=TE scripts/pbs_job.sh`，`TEMODEL=fixed`，`TEMODEL=classical`．**24 番が終わってから**投げる（`git pull` を先に） | `results/server/te_authors_ch_TE.json`，`_fixed.json`，`_classical.json`（＋ `_fields.npz`） | 24 番の 2 倍ほど（ネットワークが 2 つ） | 未実行 |
 | 26 | `te_*`（`TEMODEL=fixedmatch`） | **固定の埋め込みで，パラメータ数を TE-QPINN にそろえたもの**（変分回路を深くする：Burgers は 20 層 = 240，Allen–Cahn・CH は 17 層 = 204．著者の回路のコードは層数を変えるだけ）．5 シード．`git pull` してから 3 本：`qsub -v JOB=te_burgers,TEMODEL=fixedmatch scripts/pbs_job.sh`，`JOB=te_ac,TEMODEL=fixedmatch`，`JOB=te_ch,TEMODEL=fixedmatch`．GPU が空きしだい，23〜25 番と並べてよい（同時に 4 本まで） | `results/server/te_authors_burgers_fixedmatch.json`，`te_authors_ac_fixedmatch.json`，`te_authors_ch_fixedmatch.json` | 同じ問題の fixed の 3〜4 倍 | 未実行 |
+| 27 | `pf_ch2d` | **2 次元の Cahn–Hilliard を最小二乗の 3 手法で比べる**（量子リザバー，tanh，Fourier）．楕円の液滴が円に戻る問題（ε = 0.05，t = 0.4 まで，64 × 64 点，混合形）．`68_ch2d_qerc.py`．2 本：`qsub -v JOB=pf_ch2d,PFN=8 scripts/pbs_job.sh` と `PFN=10`．これは `.venv`（JAX）で動く．23〜26 番と並べてよい（同時に 4 本まで） | `results/server/ch2d_N8.json`，`ch2d_N10.json` | N = 8 は 1〜2 時間，N = 10 は半日ほど | 確認待ち（まだ投げない） |
 
 （`seeds5` / `tsv` / `array` は Claude 側の環境で回したので不要）
 
@@ -76,6 +77,8 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | `PINN-4x64` | 大きめの古典 PINN（参考） |
 | `TE-twin` | `TE` の回路だけを，同じ形の古典の関数（角度の三角関数の積の線形和）に置き換えたもの（こちらで追加） |
 
+- **主な比較は，パラメータ数をそろえた 4 つ**：`TE`，`*-match`（固定の埋め込みを深くしたもの，26 番），`PINN-match`（Burgers は `PINN-2x13`・`PINN-3x10`），`TE-twin`．
+  5 層のままの固定の埋め込み（60 パラメータ）と `PINN-4x64` は，著者の設定の再現と参考の値として残す
 - 順番：21 番（1 回だけ）→ 22 番 → 23 番（3 本同時）→ 24 番（3 本同時）→ 25 番（3 本同時）．自分の GPU ジョブは同時に 4 本までにする
 - 23・24 番は `TEMODEL` を必ず付ける（付けないとすぐ止まる）．ログは `logs/pbs_te_ac_<TEMODEL>.log` など
 - 途中で止まっても，同じコマンドで投げ直せば終わったシードは飛ばして続きから回る（結果は 1 シードごとに保存）
