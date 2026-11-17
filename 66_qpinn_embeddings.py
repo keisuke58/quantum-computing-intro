@@ -1,9 +1,12 @@
 """
 Trained QPINNs with different input embeddings vs parameter-matched classical PINNs (Muramatsu's suggestion, 2026-11-17).
+NOTE: the main runs use 67_te_qpinn_authors.py, which executes the authors' own code. This file is an independent
+JAX re-implementation of the same circuit (faster on GPU), kept for our own settings (periodic features, more qubits).
 
 Embed-once circuits as in Berger, Hosters & Moeller, Sci. Rep. 15, 18823 (2025) (TE-QPINN):
-    |0..0> -> prod_q Ry(angle_q(x)) -> L variational layers (Rx Ry Rz on every qubit + CNOT ring) -> <Z_q>
-    u = head . <Z> + bias
+    |0..0> -> prod_q Ry(angle_q(x)) -> L variational layers (Rx Ry Rz on every qubit + CNOT chain) -> <Z_q>
+    u = sum_q <Z_q>      (as in the authors' code, git.rwth-aachen.de/berger.st.11.11/te-qpinns; --head train adds a
+                          trainable weight per qubit and a bias, --ent ring closes the CNOT chain)
 Models
   Q-fixed    fixed embedding: angle_q = scale_q * a_c(q)   (Burgers: tower Chebyshev 2 (k+1) arccos a, as Kyriienko et al.)
   Q-TE       trainable embedding: an MLP (hidden 10, 10, tanh) gives phi_q(a); angle_q = phi_q(a) * a_c(q)   (Berger et al.)
@@ -63,8 +66,8 @@ def _cnot(psi, c, t, N):
     return psi.at[tuple(idx)].set(sub).reshape(-1)
 
 
-def circuit_z(angles, th, N, L):
-    """embed once with Ry(angles), then L layers of Rx Ry Rz + CNOT ring; returns <Z_q>"""
+def circuit_z(angles, th, N, L, ring=False):
+    """embed once with Ry(angles), then L layers of Rx Ry Rz + CNOT chain (ring: also N-1 -> 0); returns <Z_q>"""
     psi = jnp.zeros(2**N, dtype=complex).at[0].set(1.0)
     for q in range(N):
         psi = _apply1(psi, _ry(angles[q]), q, N)
@@ -73,9 +76,10 @@ def circuit_z(angles, th, N, L):
             psi = _apply1(psi, _rx(th[l, q, 0]), q, N)
             psi = _apply1(psi, _ry(th[l, q, 1]), q, N)
             psi = _apply1(psi, _rz(th[l, q, 2]), q, N)
-        if N > 1:
-            for q in range(N):
-                psi = _cnot(psi, q, (q + 1) % N, N)
+        for q in range(N - 1):
+            psi = _cnot(psi, q, q + 1, N)
+        if ring and N > 2:
+            psi = _cnot(psi, N - 1, 0, N)
     prob = jnp.abs(psi.reshape((2,) * N)) ** 2
     return jnp.array([jnp.sum(jnp.take(prob, 0, axis=q)) - jnp.sum(jnp.take(prob, 1, axis=q)) for q in range(N)])
 
@@ -107,25 +111,36 @@ def match_hidden(dim, target):
 
 
 # ---------------- models ----------------
-def build(name, key, pde, N, L, te_hidden, target_params=None):
+def build(name, key, pde, N, L, te_hidden, target_params=None, head="sum", ring=False):
+    """returns (params, u(p, x, t), angles(p, x, t) or None)"""
     inp = make_inp(pde); dim = 3 if pde == "ac" else 2
     comp = np.arange(N) % dim; k = np.arange(N) // dim
     k1, k2, k3 = jax.random.split(key, 3)
-    qpart = lambda: {"th": jax.random.uniform(k1, (L, N, 3), minval=0, maxval=2 * np.pi),
-                     "head": 0.5 * jax.random.normal(k2, (N,)), "bias": jnp.zeros(())}
+    def qpart():
+        q = {"th": jax.random.uniform(k1, (L, N, 3), minval=0, maxval=2 * np.pi)}
+        if head == "train":
+            q.update({"head": 0.5 * jax.random.normal(k2, (N,)), "bias": jnp.zeros(())})
+        return q
+
+    def qout(p, angles):
+        z = circuit_z(angles, p["th"], N, L, ring)
+        return p["head"] @ z + p["bias"] if head == "train" else jnp.sum(z)
+    angf = None
     if name == "Q-fixed":
         p = qpart()
         if pde == "burgers":      # tower Chebyshev (Kyriienko et al.): Ry(2 (k+1) arccos a)
             ang = lambda a: 2 * (k + 1) * jnp.arccos(a[comp])
         else:                     # a = cos/sin pi x is +-1 inside the domain, where arccos is not smooth: linear tower
             ang = lambda a: (k + 1) * (np.pi / 2) * a[comp]
-        f = lambda p, x, t: p["head"] @ circuit_z(ang(inp(x, t)), p["th"], N, L) + p["bias"]
+        f = lambda p, x, t: qout(p, ang(inp(x, t)))
+        angf = lambda p, x, t: ang(inp(x, t))
     elif name in ("Q-TE", "TE-twin"):
         p = {"emb": mlp_init(k3, [dim] + te_hidden + [N])}
         ang = lambda p, a: mlp(p["emb"], a) * a[comp]
+        angf = lambda p, x, t: ang(p, inp(x, t))
         if name == "Q-TE":
             p.update(qpart())
-            f = lambda p, x, t: p["head"] @ circuit_z(ang(p, inp(x, t)), p["th"], N, L) + p["bias"]
+            f = lambda p, x, t: qout(p, ang(p, inp(x, t)))
         else:
             p.update({"C": 0.1 * jax.random.normal(k1, (3**N,)), "bias": jnp.zeros(())})
 
@@ -141,7 +156,7 @@ def build(name, key, pde, N, L, te_hidden, target_params=None):
             h = match_hidden(dim, target_params); widths = [dim, h, h, 1]
         p = {"mlp": mlp_init(k3, widths)}
         f = lambda p, x, t: mlp(p["mlp"], inp(x, t))[0]
-    return p, f
+    return p, f, angf
 
 
 # ---------------- problems ----------------
@@ -177,12 +192,13 @@ def setup(pde, sd, n_col):
         x0 = np.linspace(-1, 1, 512, endpoint=False)
         sets = {"ic": (x0, np.zeros_like(x0), x0**2 * np.cos(np.pi * x0), 100.0)}
         T_out = [0.25, 0.5, 1.0]
-    else:                      # Berger et al.: 100 x 50 grid in (x, t), weight 10 on IC and BC
-        X, Tt = np.meshgrid(np.linspace(-1, 1, 100), np.linspace(0, 0.95, 50))
+    else:                      # authors' notebook: 100 x 50 grid in (x, t), PDE on interior points, weight 100 on IC and BC
+        x0 = np.linspace(-1, 1, 100); tb = np.linspace(0, 0.95, 50)[1:]
+        X, Tt = np.meshgrid(x0[1:-1], tb)
         xc, tc = X.ravel(), Tt.ravel()
-        tb = np.linspace(0, 0.95, 50); x0 = np.linspace(-1, 1, 100)
-        sets = {"ic": (x0, np.zeros_like(x0), -np.sin(np.pi * x0), 10.0),
-                "bc": (np.concatenate([-np.ones(50), np.ones(50)]), np.concatenate([tb, tb]), np.zeros(100), 10.0)}
+        nb = len(tb)
+        sets = {"ic": (x0, np.zeros_like(x0), -np.sin(np.pi * x0), 100.0),
+                "bc": (np.concatenate([-np.ones(nb), np.ones(nb)]), np.concatenate([tb, tb]), np.zeros(2 * nb), 100.0)}
         T_out = [0.25, 0.5, 0.75, 0.95]
     return xc, tc, sets, T_out
 
@@ -228,7 +244,7 @@ def lbfgs(vg, p, steps):
         else:
             hist.append(None)
     res = minimize(fun, np.asarray(w0), jac=True, method="L-BFGS-B", callback=cb,
-                   options={"maxiter": steps, "maxfun": 2 * steps, "maxcor": 50, "ftol": 0, "gtol": 1e-12})
+                   options={"maxiter": steps, "maxfun": 2 * steps, "maxcor": 100, "ftol": 0, "gtol": 1e-12})
     return unravel(jnp.asarray(res.x)), [h for h in hist if h] + [(res.nit, float(res.fun))]
 
 
@@ -240,6 +256,8 @@ def main():
     ap.add_argument("--N", type=int, default=4)
     ap.add_argument("--L", type=int, default=5)
     ap.add_argument("--te_hidden", default="10,10")
+    ap.add_argument("--head", default="sum", choices=["sum", "train"], help="u = sum <Z_q> (authors) or trainable head")
+    ap.add_argument("--ent", default="chain", choices=["chain", "ring"])
     ap.add_argument("--opt", default="adam", choices=["adam", "lbfgs"])
     ap.add_argument("--steps", type=int, default=20000)
     ap.add_argument("--lr", type=float, default=5e-3)
@@ -256,11 +274,12 @@ def main():
     ref = ac.reference(D_AC, xg, T_out) if a.pde == "ac" else burgers_reference(xg, T_out)
     print(f"reference {time.time() - t0:.0f}s", flush=True)
     # parameter target for PINN-match: the Q-TE model
-    te_count = n_params(build("Q-TE", jax.random.PRNGKey(0), a.pde, a.N, a.L, te_hidden)[0])
+    bk = dict(head=a.head, ring=a.ent == "ring")
+    te_count = n_params(build("Q-TE", jax.random.PRNGKey(0), a.pde, a.N, a.L, te_hidden, **bk)[0])
     rows = []
     for name in a.models.split(","):
         for sd in range(a.seeds):
-            p, f = build(name, jax.random.PRNGKey(sd), a.pde, a.N, a.L, te_hidden, te_count)
+            p, f, angf = build(name, jax.random.PRNGKey(sd), a.pde, a.N, a.L, te_hidden, te_count, **bk)
             xc, tc, sets, _ = setup(a.pde, sd, a.n_col)
             r = residual(a.pde, f)
             XC, TC = jnp.asarray(xc), jnp.asarray(tc)
@@ -292,8 +311,15 @@ def main():
             ev = jax.jit(jax.vmap(f, (None, 0, None)))
             errs = {t: float(np.linalg.norm(np.asarray(ev(p, jnp.asarray(xg), t)) - ref[t]) / np.linalg.norm(ref[t]))
                     for t in T_out}
+            if sd == 0:        # fields for figures: u and the embedding angles on a (t, x) grid
+                tg = np.linspace(0, max(T_out), 96); xs = xg[::4]
+                TT, XX = [jnp.asarray(v.ravel()) for v in np.meshgrid(tg, xs, indexing="ij")]
+                fld = {"t": tg, "x": xs, "u": np.asarray(jax.vmap(f, (None, 0, 0))(p, XX, TT)).reshape(len(tg), len(xs))}
+                if angf is not None:
+                    fld["angles"] = np.asarray(jax.vmap(angf, (None, 0, 0))(p, XX, TT)).reshape(len(tg), len(xs), -1)
+                np.savez_compressed(out.replace(".json", f"_{name}_fields.npz"), **fld)
             rows.append({"pde": a.pde, "model": name, "seed": sd, "params": n_params(p), "N": a.N, "L": a.L,
-                         "opt": a.opt, "steps": a.steps, "time_s": tt, "loss": hist[-1][1], "loss_hist": hist,
+                         "head": a.head, "ent": a.ent, "opt": a.opt, "steps": a.steps, "time_s": tt, "loss": hist[-1][1], "loss_hist": hist,
                          **{f"t{t}": e for t, e in errs.items()}})
             print(f"{a.pde} {a.opt} {name:10s} seed={sd} params={n_params(p)} loss={hist[-1][1]:.2e} " +
                   " ".join(f"t={t}:{e:.1e}" for t, e in errs.items()) + f" {tt:.0f}s", flush=True)

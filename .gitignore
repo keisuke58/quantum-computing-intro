@@ -12,3 +12,4 @@ logs/
 *.rpy*
 # PBS default output files
 *.o[0-9]*
+.venv_te/

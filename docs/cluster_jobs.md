@@ -48,30 +48,37 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | 18 | `pf_ac_data` | **Allen–Cahn をデータありで**（Rakala 実装と同じ「データ＋物理」）．参照解の値 1000 点（t = 0.1, …, 1.0 の各時刻に 100 点）を足す．最小二乗の 3 手法（N = 8，データの重み 0.1 と 1，3 シード）と，変分 QPINN・PINN（3 シード）．`qsub -v JOB=pf_ac_data scripts/pbs_job.sh` | `results/server/allen_cahn_N8_data_w0.1.json`，`_w1.json`，`ac_vqpinn_data.json` | 半日（変分 QPINN が重い） | 完了（2026-11-05） |
 | 19 | `pf_vq_bench` | **18 番の変分 QPINN が遅い件の切り分け**（データ 1000 点を足すと 1 ステップ 4〜6 倍遅い）．`56_ac_vqpinn.py` は点の配列を jit の引数で渡すように直した（CPU ではデータの項は +6 % だけ）．データありとなしの 1 ステップの時間を測って表示するだけ（学習しない）．`qsub -v JOB=pf_vq_bench scripts/pbs_job.sh` | ログの `bench ...` の 4 行（VQPINN / PINN × データなし / あり） | 10 分 | 完了（2026-11-05） |
 | 20 | `pf_ac_data_vq` | 19 番でデータありが遅くないと確かめてから：**18 番の変分 QPINN・PINN だけを回し直す**（直したコード）．走っている 18 番は止めてよい（最小二乗の分 `allen_cahn_N8_data_w*.json` はもう出ている）．`qsub -v JOB=pf_ac_data_vq scripts/pbs_job.sh` | `results/server/ac_vqpinn_data.json` | 数時間 | 完了（2026-11-05） |
-| 21 | `qe_bench` | **学習する QPINN の埋め込みの比較（村松先生の提案，下の「21〜24 番について」を参照）の速さの確認**．5 つのモデルで 1 ステップの時間を測るだけ（学習しない）．`qsub -v JOB=qe_bench scripts/pbs_job.sh` | ログの `bench ...` の 5 行 | 10 分 | 未実行 |
-| 22 | `qe_burgers` | **元論文（TE-QPINN）の設定の再現**：Burgers，4 量子ビット，5 層，L-BFGS，3 シード，5 モデル．実装の確認用．`qsub -v JOB=qe_burgers scripts/pbs_job.sh` | `results/server/qpinn_emb_burgers_lbfgs.json` | 1〜2 時間 | 未実行 |
-| 23 | `qe_ac` | **本番：Allen–Cahn で比べる**（6 量子ビット，5 層，Adam 2 万ステップ，5 シード）．モデルごとに 3 本に分けて投げる：`qsub -v JOB=qe_ac,QEMODEL=Q-fixed scripts/pbs_job.sh`，`QEMODEL=Q-TE`，`QEMODEL=classical` | `results/server/qpinn_emb_ac_adam_Q-fixed.json`，`_Q-TE.json`，`_classical.json` | 量子の 2 本は半日ほど（21 番の ms × 2 万 × 5 で見積もる），classical は 1 時間 | 未実行 |
-| 24 | `qe_ac_lbfgs` | 23 番と同じ比較を，元論文と同じ L-BFGS（1 万反復）で．23 番が終わってから，同じく 3 本：`qsub -v JOB=qe_ac_lbfgs,QEMODEL=Q-fixed scripts/pbs_job.sh` など | `results/server/qpinn_emb_ac_lbfgs_Q-fixed.json`，`_Q-TE.json`，`_classical.json` | 23 番の半分ほど | 未実行 |
+| 21 | `te_setup`（qsub ではない） | **著者のコード（TE-QPINN）と専用の環境を用意する**．copaam のログインノードで `bash scripts/setup_te_venv.sh` を 1 回実行（ダウンロードとインストールだけ）．著者のリポジトリを `~/te-qpinns` に clone し，`.venv_te`（torch ＋ PennyLane）を作る | 最後に `torch ... pennylane ... cuda build ...` と `=== setup done ===` | 10〜20 分 | 未実行 |
+| 22 | `te_smoke` | **動作確認**（小さな格子で 2 ステップだけ．結果ではない）．`qsub -v JOB=te_smoke scripts/pbs_job.sh` | ログに `'device': 'cuda'` と，Burgers・Allen–Cahn それぞれ 6 行のモデルの行 | 5 分 | 未実行 |
+| 23 | `te_burgers` | **元論文の再現：Burgers**（著者の設定のまま：4 量子ビット，5 層，L-BFGS 500 ステップ）．5 シード．3 本に分けて投げる：`qsub -v JOB=te_burgers,TEMODEL=TE scripts/pbs_job.sh`，`TEMODEL=fixed`，`TEMODEL=classical` | `results/server/te_authors_burgers_TE.json`，`_fixed.json`，`_classical.json`（＋ `_fields.npz`，`te_authors_ref_*.npy`） | TE と fixed は 1 シード 1〜5 時間，classical は全部で 1 時間ほど | 未実行 |
+| 24 | `te_ac` | **本番：Allen–Cahn**（著者の Allen–Cahn のノートブックのまま：因果性つきの学習，200 × 200 点，L-BFGS 最大 300 ステップ）．5 シード．同じく 3 本：`qsub -v JOB=te_ac,TEMODEL=TE scripts/pbs_job.sh`，`TEMODEL=fixed`，`TEMODEL=classical` | `results/server/te_authors_ac_TE.json`，`_fixed.json`，`_classical.json`（＋ `_fields.npz`） | TE と fixed は 1 シード 2〜10 時間（長くてよい），classical は数時間 | 未実行 |
 
 （`seeds5` / `tsv` / `array` は Claude 側の環境で回したので不要）
 
-## 21〜24 番について（学習する QPINN の埋め込みの比較）
+## 21〜24 番について（学習する QPINN の埋め込みの比較，著者のコードをそのまま使う）
 
-村松先生の提案（2026-11-17）：固定の埋め込み，表現力を高めた埋め込み（Berger ら，Sci. Rep. 15, 18823 (2025) の TE-QPINN），
-パラメータ数をそろえた古典 NN で性能を比べる．スクリプトは `66_qpinn_embeddings.py`．
+村松先生の提案（2026-11-17）：固定の埋め込み，表現力を高めた埋め込み，パラメータ数をそろえた古典 NN で性能を比べる．
+
+- 元論文：S. Berger, N. Hosters, M. Möller, "Trainable embedding quantum physics informed neural networks for solving nonlinear PDEs", Sci. Rep. 15, 18823 (2025), doi:10.1038/s41598-025-02959-z
+- 著者のコード：https://git.rwth-aachen.de/berger.st.11.11/te-qpinns （commit `f7d0177`，PennyLane ＋ PyTorch．ログインなしで clone できる）
+- `67_te_qpinn_authors.py` は，著者のノートブックのセル（回路・埋め込みの NN・コロケーション点・損失）を**書き換えずに読み込んで実行**する．
+  こちらで書いたのは，学習のループ（著者のループと同じ `torch.optim.LBFGS(..., line_search_fn="strong_wolfe")`・同じ回数・同じ停止条件），
+  参照解（スペクトル法），著者のコードに無いモデルだけ．著者のコードはこのリポジトリには入れない（`~/te-qpinns` に置く）
 
 | モデル | 中身 |
 |---|---|
-| `Q-fixed` | 固定の埋め込み（角度 = 決まった倍率 × 入力）＋ 変分回路 |
-| `Q-TE` | 小さな NN（10, 10）が量子ビットごとの倍率を出す学習する埋め込み ＋ 変分回路（TE-QPINN） |
-| `TE-twin` | `Q-TE` の回路を，同じ形の古典の関数（角度の三角関数の積の線形和）に置き換えたもの |
-| `PINN-match` | `Q-TE` とパラメータ数をそろえた古典 PINN |
-| `PINN` | 4 層 × 64 の古典 PINN（参考） |
+| `TE` | 学習する埋め込み（小さな NN が量子ビットごとの倍率を出す）＋ 変分回路．著者の TE-QPINN |
+| `NONE` / `CHEBYSHEV` / `TOWER` | 固定の埋め込み（座標をそのまま／Chebyshev 型）＋ 同じ変分回路．著者のコードにある選択肢 |
+| `PINN-3x10` / `PINN-2x13` / `PINN-match` | パラメータ数をそろえた古典 PINN（著者の FNN クラス） |
+| `PINN-4x64` | 大きめの古典 PINN（参考） |
+| `TE-twin` | `TE` の回路だけを，同じ形の古典の関数（角度の三角関数の積の線形和）に置き換えたもの（こちらで追加） |
 
-- 順番：21 番 → 22 番 → 23 番（3 本同時）→ 24 番（3 本同時）．自分の GPU ジョブは同時に 4 本までにする
-- 21 番で量子のモデルが 1 ステップ 1 秒を超えるときは，23 番を投げずにログの 5 行を報告する（コードを見直す）
-- 23・24 番は `QEMODEL` を必ず付ける（付けないとすぐ止まる）．ログは `logs/pbs_qe_ac_<QEMODEL>.log`
-- 回し終えたら，各ログの最後の行（モデルごとの `t=1.0:` の誤差）を報告する
+- 順番：21 番（1 回だけ）→ 22 番 → 23 番（3 本同時）→ 24 番（3 本同時）．自分の GPU ジョブは同時に 4 本までにする
+- 23・24 番は `TEMODEL` を必ず付ける（付けないとすぐ止まる）．ログは `logs/pbs_te_ac_<TEMODEL>.log` など
+- 途中で止まっても，同じコマンドで投げ直せば終わったシードは飛ばして続きから回る（結果は 1 シードごとに保存）
+- 21 番で「pinned versions did not install」と出たら，新しい版で入っている．そのまま進めてよい（版はログと結果に記録される）
+- 22 番のログが `'device': 'cpu'` のときは，23 番を投げずに報告する（GPU 版の torch が入っていない）
+- 回し終えたら，各ログのモデルごとの最後の行（`relL2=` のある行）を報告し，`results/server/te_authors_*` を push する
 
 ## うまくいかないとき
 

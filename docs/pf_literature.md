@@ -45,6 +45,20 @@
   - 進める前に佐々木くんと例題・パラメータをすり合わせる
  量子で AC を扱った PINN は Zabihi ら（変分のハイブリッド）だけ．
 
+### 学習する埋め込みの QPINN（TE-QPINN）— 村松先生の提案（2026-11-17）の元論文
+
+- S. Berger, N. Hosters, M. Möller, "Trainable embedding quantum physics informed neural networks for solving nonlinear PDEs",
+  Sci. Rep. 15, 18823 (2025), doi:10.1038/s41598-025-02959-z．コード：https://git.rwth-aachen.de/berger.st.11.11/te-qpinns （commit `f7d0177`）
+- 埋め込み：小さな tanh の NN が量子ビットごとの倍率 φ_i(x) を出し，Ry(φ_i(x)·x_c) で入れる．そのあと変分回路（Rx Ry Rz ＋ CNOT の鎖），出力は Σ⟨Z_i⟩．最適化は L-BFGS
+- 比較相手の固定の埋め込みは Kyriienko, Paine, Elfving, Phys. Rev. A 103, 052416 (2021) の Chebyshev 型
+- 主張：パラメータ数をそろえた PINN（235・261）より，TE-QPINN（244）の最終ロスが 1 桁低い（Poisson，Burgers，3 回の平均）．比べているのはロスで，参照解との誤差の比較は Burgers の PINN 比較には無い
+- 公開コードを読んで分かったこと：
+  - Burgers の境界・初期条件の重みは `10e1`（= 100）
+  - `TOWER_CHEBYSHEV` は，塔の倍率が量子ビットごとに 1 に戻るので，角度は `CHEBYSHEV` と同じになる
+  - 論文に載っていない Allen–Cahn（Raissi の式）のノートブックがある：4 量子ビット，NN 1 層 × 20，200 × 200 点，初期条件の重み 1000，
+    因果性つきの学習（Wang, Sankaran, Perdikaris, CMAME 421, 116813 (2024)）．出力は保存されておらず，結果は不明
+- こちらの計算：`67_te_qpinn_authors.py`（著者のセルをそのまま実行）．指示書の 21〜24 番
+
 ## 4. 論文での位置づけ（案）
 
 - 新しさ：量子リザバー PINN を PF（AC → CH）に初めて適用．学習なしで，適応 PINN（Wight–Zhao）と同じ例題で比べる

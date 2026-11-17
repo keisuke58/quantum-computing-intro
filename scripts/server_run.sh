@@ -92,6 +92,22 @@ run_job() {
       esac
       if [ "$1" = qe_ac ]; then QEO="--opt adam --steps 20000"; QET=adam; else QEO="--opt lbfgs --steps 10000"; QET=lbfgs; fi
       python -u 66_qpinn_embeddings.py --pde ac --N 6 --L 5 --seeds 5 $QEO --models $QEM --out results/server/qpinn_emb_ac_${QET}_${QEMODEL}.json ;;
+    te_smoke)
+      for PDE in burgers ac; do
+        .venv_te/bin/python -u 67_te_qpinn_authors.py --repo "${TE_REPO:-$HOME/te-qpinns}" --pde $PDE --smoke --seeds 1 --outer 2
+      done ;;
+    te_burgers|te_ac)
+      # TEMODEL = TE | fixed | classical (one qsub each; commas cannot go through qsub -v). Finished runs are skipped on resubmission.
+      TEP=${1#te_}
+      case "${TEMODEL:?set TEMODEL=TE|fixed|classical}:$TEP" in
+        TE:*) TEM=TE ;;
+        fixed:burgers) TEM=TOWER,NONE ;;
+        fixed:ac) TEM=CHEBYSHEV,NONE ;;
+        classical:burgers) TEM=PINN-3x10,PINN-2x13,TE-twin ;;
+        classical:ac) TEM=PINN-match,PINN-4x64,TE-twin ;;
+        *) echo "unknown TEMODEL=$TEMODEL"; return 1 ;;
+      esac
+      .venv_te/bin/python -u 67_te_qpinn_authors.py --repo "${TE_REPO:-$HOME/te-qpinns}" --pde $TEP --models $TEM --seeds ${TESEEDS:-5} --out results/server/te_authors_${TEP}_${TEMODEL}.json ;;
     bigN)
       for N in 10 12; do
         python 30_qerc_tsv_single.py --N $N --seeds 3 --out results/server/tsv_single_N${N}.json
