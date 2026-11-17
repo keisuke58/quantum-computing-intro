@@ -49,6 +49,24 @@ def make_tensor_rp(N, seed, scale, m=None):
     return feat
 
 
+def make_product_rf(N, seed, scale, m=None):
+    """Product random features: F_k(x) = prod_l <psi_l(x)| A_{k,l} |psi_l(x)>, A_{k,l} random 2x2 Hermitian.
+    Same encoding (angles) as QERC; each feature lies in the span of rho_ij(x) (the QERC function space)
+    and costs O(N) to evaluate classically (no 2^N state, no 2^N x 2^N matrix)."""
+    g, angf = _angles(N, seed, scale)
+    m = m or 2**N
+    Z = (g.normal(size=(m, N, 2, 2)) + 1j * g.normal(size=(m, N, 2, 2))) / 2
+    A = jnp.asarray(Z + np.conj(np.transpose(Z, (0, 1, 3, 2))))          # Hermitian, per qubit
+
+    def feat(x, y, A=A):
+        ang = angf(x, y)
+        q = jnp.stack([jnp.cos(ang[:N] / 2), jnp.exp(1j * ang[N:]) * jnp.sin(ang[:N] / 2)], -1)   # (N, 2)
+        vals = jnp.real(jnp.einsum("li,klij,lj->kl", jnp.conj(q), A, q))                         # (m, N)
+        return jnp.prod(vals, axis=1)
+    feat.extra = A
+    return feat
+
+
 def make_mlp2(N, seed, scale):
     g = np.random.default_rng(3000 + seed)
     W1 = jnp.asarray(g.normal(size=(2, 2 * N)) * scale); b1 = jnp.asarray(g.normal(size=2 * N))
@@ -92,6 +110,7 @@ def main():
         "QERC-Haar": ([1.0, 2.0, 4.0], lambda sd, s: T.make_qerc(a.N, sd, s)),
         "tensor-RP": ([2.0, 4.0], lambda sd, s: make_tensor_rp(a.N, sd, s)),
         "MLP2-RF": ([1.0, 2.0, 4.0, 8.0], lambda sd, s: make_mlp2(a.N, sd, s)),
+        "product-RF": ([1.0, 2.0, 4.0], lambda sd, s: make_product_rf(a.N, sd, s)),
     }
     if a.models:
         grid = {k: v for k, v in grid.items() if k in a.models.split(",")}

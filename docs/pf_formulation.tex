@@ -1,0 +1,179 @@
+% Phase-field (Allen-Cahn / Cahn-Hilliard) with fixed features + least squares: formulation.
+% Build: uplatex pf_formulation.tex && uplatex pf_formulation.tex && dvipdfmx pf_formulation.dvi
+\documentclass[uplatex,dvipdfmx,a4paper,11pt]{jsarticle}
+\usepackage[margin=22mm]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs}
+\usepackage[dvipdfmx]{hyperref}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\R}{\mathbb{R}}
+
+\title{Phase-field 方程式への量子リザバー PINN の適用：定式化}
+\author{Keisuke Nishioka}
+\date{2026 年 11 月（スクリプト \texttt{52\_allen\_cahn\_qerc.py}，\texttt{54\_cahn\_hilliard\_qerc.py}）}
+
+\begin{document}
+\maketitle
+
+\section{対象とする方程式}
+
+\subsection{Allen--Cahn 方程式}
+Raissi ら（J.\ Comput.\ Phys.\ 378, 2019）の式 (12) をそのまま用いる．
+\begin{equation}
+  u_t - D\,u_{xx} + 5u^3 - 5u = 0,\qquad x\in[-1,1],\ t\in[0,1],\qquad D = 10^{-4},
+  \label{eq:ac}
+\end{equation}
+\begin{equation}
+  u(0,x) = x^2\cos(\pi x),\qquad u(t,-1)=u(t,1),\quad u_x(t,-1)=u_x(t,1).
+\end{equation}
+式 \eqref{eq:ac} は自由エネルギー
+\begin{equation}
+  E[u] = \int_{-1}^{1}\Big(\frac{D}{2}u_x^2 + F(u)\Big)\dd x,\qquad F(u)=\frac{5}{4}\,(u^2-1)^2
+\end{equation}
+の $L^2$ 勾配流 $u_t = -\delta E/\delta u$ である（$F'(u)=5u^3-5u$）．
+$F$ は $u=\pm1$ に極小をもつ二重井戸で，これが 2 つの相に対応する．
+平衡状態の界面は $u=\tanh\big(x/\sqrt{2D/5}\big)$ で，$u$ が $-0.9$ から $0.9$ まで変わる幅は約 $0.019$．本問題の $t=1$ ではまだ平衡に達しておらず，幅は約 $0.04$．
+相の量 $\int u\,\dd x$ は保存されない．
+
+\subsection{Cahn--Hilliard 方程式（混合形）}
+\begin{equation}
+  \phi_t = \mu_{xx},\qquad \mu = \phi^3-\phi-\varepsilon^2\phi_{xx},\qquad x\in[-1,1],\ t\in[0,1],\qquad \varepsilon^2=0.02,
+  \label{eq:ch}
+\end{equation}
+\begin{equation}
+  \phi(0,x) = \cos(\pi x) - \exp\!\big(-4(\pi x)^2\big),\qquad \text{周期境界}.
+\end{equation}
+$\mu=\delta E/\delta\phi$，$E[\phi]=\int(\tfrac{\varepsilon^2}{2}\phi_x^2+\tfrac14(\phi^2-1)^2)\dd x$ であり，
+周期境界のもとで $\frac{\dd}{\dd t}\int\phi\,\dd x=\int\mu_{xx}\,\dd x=0$（質量保存）．
+$\phi$ だけで書くと 4 階の方程式 $\phi_t=(\phi^3-\phi)_{xx}-\varepsilon^2\phi_{xxxx}$ になるが，
+混合形 \eqref{eq:ch} では $\phi,\mu$ とも 2 階までの微分しか現れない．
+
+\section{空間の近似：固定の特徴量}
+未知関数を $m$ 個の固定の特徴量 $\varphi_k$ で展開する．
+\begin{equation}
+  u(t,x)\approx\sum_{k=1}^{m}c_k(t)\,\varphi_k\big(\bm z(x)\big),\qquad
+  \bm z(x)=\big(\cos\pi x,\ \sin\pi x\big).
+\end{equation}
+入力を $\bm z(x)$ にすることで，$u$ とそのすべての導関数が周期 2 で連続になり，周期境界条件は自動的に満たされる．
+CH では $\phi=\sum_k\alpha_k\varphi_k$，$\mu=\sum_k\beta_k\varphi_k$ と同じ特徴量で展開する．
+
+\paragraph{量子リザバー（QERC，$m=2^N$）.}
+$W\in\R^{2\times2N}$，$W_{ij}\sim s\,\mathcal N(0,1)$，$\bm b\in\R^{2N}$，$b_j\sim\mathcal N(0,1)$ として
+\begin{equation}
+  \bm\theta=\frac{\pi}{2}\big(\tanh(W^{\top}\bm z+\bm b)+1\big)\in(0,\pi)^{2N},
+\end{equation}
+\begin{equation}
+  |\psi(\bm z)\rangle=\bigotimes_{l=1}^{N}\Big(\cos\tfrac{\theta_l}{2}|0\rangle+e^{i\theta_{N+l}}\sin\tfrac{\theta_l}{2}|1\rangle\Big),\qquad
+  \varphi_k(\bm z)=\big|\langle k|U|\psi(\bm z)\rangle\big|^2,\quad k=0,\dots,2^N-1,
+\end{equation}
+$U$ は Haar 分布のユニタリ（固定）．$s$ は入力の倍率．
+
+\paragraph{古典の乱数特徴量（$m=2^N$）.}
+$\bm w_k\sim s\,\mathcal N(0,I_2)$ として，
+tanh：$\varphi_k=\tanh(\bm w_k\cdot\bm z+b_k)$，$b_k\sim\mathcal N(0,1)$；
+Fourier：$\varphi_k=\cos(\bm w_k\cdot\bm z+b_k)$，$b_k\sim\mathcal U(0,2\pi)$．
+
+\paragraph{選点と行列.}
+$x_i=-1+(2i-1)/M$（$i=1,\dots,M$，$M=4m$）．
+\begin{equation}
+  \Phi_{ik}=\varphi_k(x_i),\qquad \Phi''_{ik}=\frac{\dd^2\varphi_k}{\dd x^2}(x_i).
+\end{equation}
+$\Phi''$ は合成関数の微分を自動微分（JAX）で計算する．
+\textbf{この 2 つの行列は最初に 1 回だけ作り}，以後の時間積分ではくり返し使う
+（量子回路で言えば，回路の評価は最初の 1 回で済む）．
+
+\section{時間積分と Newton 法}
+時間は BDF2（2 段の後退差分）で進める（$\Delta t=10^{-3}$，最初の 1 ステップだけ後退 Euler）．
+\begin{equation}
+  \frac{3u^{n+1}-4u^{n}+u^{n-1}}{2\Delta t} = \mathcal{F}(u^{n+1}).
+\end{equation}
+非線形項は Newton 法で線形化する．反復 $k$ の値 $u_k$ のまわりで
+\begin{equation}
+  (u^{n+1})^3\approx 3u_k^2\,u^{n+1}-2u_k^3 .
+\end{equation}
+以下，$\bm u_k=\Phi\bm c_k$ は選点での値のベクトル，$\operatorname{diag}(\bm v)$ は対角行列，べき乗は成分ごと．
+
+\paragraph{Allen--Cahn.}
+$a=3/(2\Delta t)$，$\bm r=(4\bm u^{n}-\bm u^{n-1})/(2\Delta t)$ として，各反復で
+\begin{equation}
+  \Big[\operatorname{diag}\big(a+15\bm u_k^2-5\big)\,\Phi - D\,\Phi''\Big]\bm c_{k+1} = \bm r + 10\,\bm u_k^3
+  \label{eq:ac-ls}
+\end{equation}
+を最小二乗で解く（$M$ 行 $m$ 列）．
+
+\paragraph{Cahn--Hilliard.}
+第 1 式に $\Delta t$ を掛けて 2 つの式の大きさをそろえる．
+$\gamma=3/2$，$\bm\rho=(4\bm\phi^{n}-\bm\phi^{n-1})/2$（最初のステップは $\gamma=1$，$\bm\rho=\bm\phi^{n}$）として
+\begin{equation}
+  \begin{bmatrix}
+    \gamma\,\Phi & -\Delta t\,\Phi''\\[2pt]
+    -\operatorname{diag}\big(3\bm\phi_k^2-1\big)\Phi+\varepsilon^2\Phi'' & \Phi
+  \end{bmatrix}
+  \begin{bmatrix}\bm\alpha_{k+1}\\ \bm\beta_{k+1}\end{bmatrix}
+  =
+  \begin{bmatrix}\bm\rho\\ -2\,\bm\phi_k^3\end{bmatrix}
+  \label{eq:ch-ls}
+\end{equation}
+（$2M$ 行 $2m$ 列）．第 2 行は $\mu-(\phi^3-\phi)+\varepsilon^2\phi_{xx}=0$ に線形化を代入したもの．
+
+\paragraph{収束.}
+$\max_i|u_{k+1}(x_i)-u_k(x_i)|<10^{-10}$ で打ち切る（最大 6 回（AC），8 回（CH））．
+
+\section{最小二乗の解き方}
+$A\bm c\approx\bm b$ を列のノルムでスケーリングし（$S=\operatorname{diag}(\|A_{:,j}\|)$，$\hat A=AS^{-1}$），
+小さいリッジ項をつけた正規方程式で解く．
+\begin{equation}
+  \Big(\hat A^{\top}\hat A+\lambda\,\frac{\operatorname{tr}(\hat A^{\top}\hat A)}{m'}\,I\Big)\hat{\bm c}=\hat A^{\top}\bm b,\qquad
+  \bm c=S^{-1}\hat{\bm c},\qquad \lambda=10^{-12}.
+\end{equation}
+$m'$ は未知数の数．初期値は $\bm c^{0}=\arg\min\|\Phi\bm c-\bm u_0\|$．
+勾配法による学習は一切ない．
+
+\section{参照解}
+Fourier 擬スペクトル法（AC：1024 モード，CH：256 モード）と ETDRK4（Cox--Matthews，係数は Kassam--Trefethen の
+複素積分（32 点）で計算），$\Delta t=10^{-5}$．波数 $\kappa=\pi k$ に対して
+\begin{align}
+  \text{AC：}&\quad \hat u_t = \big(-D\kappa^2+5\big)\hat u - 5\,\widehat{u^3},\\
+  \text{CH：}&\quad \hat\phi_t = \big(\kappa^2-\varepsilon^2\kappa^4\big)\hat\phi - \kappa^2\,\widehat{\phi^3}.
+\end{align}
+
+\section{誤差の評価と倍率の調整}
+選点での相対 $L^2$ 誤差 $e(t)=\|\bm u_h(t)-\bm u_{\mathrm{ref}}(t)\|_2/\|\bm u_{\mathrm{ref}}(t)\|_2$
+を $t=0.25,0.5,1$ で測る．
+各モデル・各シードについて倍率 $s$ を掃引し，$t=1$ の誤差が最小の $s$ を採用する．
+最良の $s$ が探索範囲の端なら範囲を広げる．CH では質量のずれ $|\int\phi(1)\,\dd x-\int\phi(0)\,\dd x|$ も記録する．
+
+\paragraph{自由エネルギーの散逸.}
+AC と CH はどちらも自由エネルギーの勾配流なので，厳密解では $E(t)$ は単調に減る．
+各ステップで $E^{n}=E[u_h(t_n)]$ を計算し（$u_x$ は選点の値からスペクトル微分で求める），
+\begin{equation}
+  e_E=\frac{|E^{N_t}-E_{\mathrm{ref}}(1)|}{|E_{\mathrm{ref}}(1)|},\qquad
+  E_{\mathrm{up}}=\frac{\max\big(0,\ \max_n(E^{n+1}-E^{n})\big)}{|E^{0}|}
+\end{equation}
+を記録する．$E_{\mathrm{up}}>0$ は散逸性が壊れたことを意味する．
+確認：厳密な Fourier 基底では，AC で $e_E=2.1\times10^{-5}$，CH で $3.6\times10^{-12}$，どちらも $E_{\mathrm{up}}=0$．
+
+\section{確認結果（Allen--Cahn）}
+\begin{table}[h]
+\centering
+\begin{tabular}{lc}
+\toprule
+確認（$t=1$ の相対 $L^2$ 誤差） & 誤差\\
+\midrule
+参照解：$\Delta t$ を 2 倍にした解との差 & $1.8\times10^{-11}$\\
+BDF2（$\Delta t=10^{-3}$）＋ 厳密な Fourier 基底 513 関数 vs 参照解 & $4.9\times10^{-6}$\\
+同じく $\Delta t=5\times10^{-4}$ & $1.5\times10^{-6}$\\
+厳密な Fourier 基底 257 関数（特徴量の数とほぼ同じ） & $3.8\times10^{-4}$\\
+\bottomrule
+\end{tabular}
+\end{table}
+独立な 2 つの解法（ETDRK4 と BDF2）が $10^{-6}$ で一致するので，時間刻みの誤差は比較に影響しない．
+特徴量 256 個で到達できる精度の目安は $4\times10^{-4}$ 程度である．
+
+\section{量子ハードウェアで実行する場合}
+$\Phi$ と $\Phi''$ の各成分は，ショット測定（2 階微分はパラメータシフト則）で推定する．
+本手法ではこれらを最初に 1 回だけ推定すればよく，時間積分と Newton 反復は古典計算のみで進む．
+ただし推定誤差は全ステップに残るため，ショットノイズの影響は別途評価が必要である．
+CH を混合形にするのは，4 階微分の推定（ノイズが大きい）を避けるためでもある．
+
+\end{document}

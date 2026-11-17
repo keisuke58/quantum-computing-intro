@@ -7,55 +7,71 @@
 \usepackage{siunitx}
 \usepackage[numbers,sort&compress]{natbib}
 \usepackage{hyperref}
+\usepackage{amsthm}
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+\theoremstyle{remark}\newtheorem*{remark}{Remark}
 \graphicspath{{../figs/}}
 
-\title{What does a quantum reservoir bring to physics-informed solid mechanics?\\
-\large A fair benchmark against classical random features}
-\author{[Author names] \\ [Affiliations]}
+\title{Quantum reservoir PINNs under a fair comparison:\\
+\large solid mechanics and phase-field equations}
+\author{Keisuke Nishioka \\ {Muramatsu Laboratory, School of Science for Open and Environmental Systems,}\\ {Graduate School of Science and Technology, Keio University}}
 \date{Draft, \today}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-Quantum physics-informed neural networks (QPINNs) are often reported with few parameters and
-modest accuracy, but rarely against classical models of the same size that have been tuned with the same care.
-We revisit the question for linear solid mechanics.
-First, variational QPINNs lose to size-matched classical networks on Lam\'e, Kirsch and thermoelastic problems,
-and the bottleneck is optimization rather than expressivity.
-Second, we remove the optimization by freezing the circuit and solving only a linear readout by one least-squares solve
-(a quantum extreme-learning or reservoir PINN, QERC-PINN).
-With a per-qubit encoding and a Haar or Clifford+T reservoir, QERC-PINN reaches relative errors of
-$\sim\!5\times10^{-5}$ on the Kirsch plate and resolves the stress concentration factor $K_t=3.00$.
-Third, we show that the features $p_k(\bm x)=\mathrm{Tr}[U^\dagger|k\rangle\langle k|U\rho(\bm x)]$ are linear in the
-encoded state, so the reservoir only selects a random $2^N$-dimensional subspace of the tensor-product function space
-spanned by $\rho(\bm x)$; the encoding alone fixes what can be represented.
-A classical random projection of the same tensor-product space reproduces the quantum results exactly.
-On application problems with material interfaces --- a through-silicon via (TSV) and periodic TSV arrays --- the quantum reservoir matches a classical two-layer random network, while
-cosine (Fourier) random features are best in almost every case, by up to $\sim\!40\times$.
-Finally, measurement shot noise is the main obstacle on hardware: with $10^7$ shots per circuit the strong-form
-solution still has errors of 4--11\%. Moving to an energy (Ritz) formulation that needs only first derivatives
-reduces the error 3--4 times (about one order of magnitude in shots), but a further 2--3 orders of magnitude are needed.
+Quantum physics-informed neural networks (QPINNs) are often reported with few parameters and modest accuracy,
+but rarely against classical models of the same size tuned with the same care.
+We revisit the question with controlled comparisons on linear elasticity and on phase-field equations.
+Variational QPINNs are limited by optimization rather than expressivity: on the Allen--Cahn equation a 6-qubit
+QPINN reaches a relative error of 0.76.
+Freezing the circuit and solving only the linear readout by least squares (a quantum reservoir PINN, QERC-PINN)
+removes this obstacle and reaches $\sim\!5\times10^{-5}$ on the Kirsch plate.
+We then prove that the reservoir cannot add representational power: its features span a subspace of the function
+space $\mathcal F_\rho$ fixed by the encoding, $\mathcal F_\rho$ is spanned by products of single-qubit functions,
+and classical product random features with $O(N)$ cost per feature give access to the same space; on a
+through-silicon via (TSV) they match the Haar reservoir ($3.5$ vs $3.9\times10^{-3}$).
+Reading the features out on hardware needs $O(N^2 2^N/\varepsilon^2)$ shots per collocation point, more than
+computing them classically.
+Across a Kirsch plate, TSVs in 2D, axisymmetry and 3D (with Abaqus references), and the Allen--Cahn and
+Cahn--Hilliard equations, least-squares solvers without any training beat published adaptive PINNs
+(Allen--Cahn $10^{-3}$ vs $2.3\times10^{-2}$; Cahn--Hilliard $6.9\times10^{-4}$ vs $9.5\times10^{-3}$),
+but the quantum reservoir trails classical random features; on sharp phase-field interfaces it does not improve
+from 8 to 10 qubits ($1.0\times10^{-2}$) while classical features reach $5\times10^{-6}$.
+Shot noise is the main obstacle on hardware; an energy formulation reduces it 3--4 times.
 We release all code and data.
 \end{abstract}
 
 % =====================================================================
 \section{Introduction}
-% TODO: motivation (PINNs for solid mechanics; QML claims of parameter efficiency); related work
-% \citep{raissi2019pinn,dwivedi2020pielm,schuld2021encoding,ikeda2026qerc,qrfm2025,fspielm2026,hybridqpinn2026,qcpinn2025}.
-Physics-informed neural networks (PINNs) \citep{raissi2019pinn} and their quantum counterparts (QPINNs)
-\citep{qcpinn2025,hybridqpinn2026} are attractive for small-parameter surrogate models.
-Claims of parameter efficiency, however, depend strongly on the classical baseline.
-In this work we ask a narrower question with careful controls: \emph{for linear elasticity, what part of a quantum
-model actually helps, and can a classical model with the same structure reproduce it?}
+Physics-informed neural networks (PINNs) \citep{raissi2019pinn} solve PDEs by minimizing the equation residual over
+the parameters of a network. Their quantum counterparts (QPINNs) replace the network by a parametrized circuit
+\citep{qcpinn2025,hybridqpinn2026} and are often motivated by parameter efficiency and by the large function spaces
+that a few qubits can encode \citep{schuld2021encoding}. Such claims depend strongly on the classical baseline:
+a quantum model is typically compared with a PINN of a different size, trained differently, or not tuned.
+
+We ask a narrow question with careful controls: \emph{which part of a quantum PDE solver actually helps, and can a
+classical model with the same structure reproduce it?} We study linear elasticity (a plate with a hole, through-silicon
+vias in 2D, axisymmetry and 3D) and the phase-field equations of Allen--Cahn and Cahn--Hilliard type, whose sharp
+moving interfaces are a known difficulty for PINNs \citep{wight2021adaptive,mattey2022bcpinn}.
+Our quantum model is a quantum reservoir \citep{ikeda2026qerc} with a least-squares readout, i.e.\ a physics-informed
+extreme learning machine \citep{dwivedi2020pielm} whose features are measurement probabilities of a fixed circuit; the
+closest classical analogues are random feature methods \citep{rahimi2007rf,chen2022rfm,zhou2026drfm,qrfm2025}.
+Quantum algorithms based on Carleman linearization address the same reaction--diffusion equations on fault-tolerant
+hardware \citep{an2023reactiondiffusion,sasaki2026cls}; we target near-term devices instead.
 
 Our contributions are:
 \begin{enumerate}
-  \item A negative but diagnostic result for variational QPINNs: the bottleneck is optimization (Sec.~\ref{sec:vqpinn}).
-  \item A QERC-PINN that avoids optimization by one least-squares solve, and a simple argument that the reservoir
-        cannot change the representable function space (Sec.~\ref{sec:theory}).
-  \item A fair benchmark with tuned classical random features, including cosine features and classical controls
-        that share the tensor-product structure of the quantum features (Secs.~\ref{sec:kirsch}--\ref{sec:apps}).
+  \item A diagnosis of variational QPINNs: the bottleneck is optimization (Sec.~\ref{sec:vqpinn}); on the Allen--Cahn
+        equation they fail where least-squares solvers succeed (Sec.~\ref{sec:pf}).
+  \item Propositions showing that the reservoir only selects a subspace of an encoding-defined space that is classically
+        accessible at $O(N)$ cost per feature, and that hardware readout is more expensive than classical evaluation
+        (Sec.~\ref{sec:theory}).
+  \item A fair benchmark with tuned classical random features and controls sharing the tensor-product structure,
+        on solid mechanics (Secs.~\ref{sec:kirsch}--\ref{sec:apps}) and phase-field equations (Sec.~\ref{sec:pf}),
+        with independent references (analytic, our FE, Abaqus, spectral).
   \item A shot-noise analysis and a first mitigation by an energy formulation (Sec.~\ref{sec:shots}).
 \end{enumerate}
 
@@ -142,27 +158,89 @@ displacement error by 2--3 times, but a classical MLP of the same size with the 
 Since the analytic solution lies close to the circuit's function class, we attribute the gap to optimization.
 
 % =====================================================================
-\section{The reservoir does not change the function space}\label{sec:theory}
-For any reservoir $U$, $p_k(\bm x)=\mathrm{Tr}[M_k\rho(\bm x)]$ with $M_k=U^\dagger|k\rangle\langle k|U$ and
-$\rho(\bm x)=|\psi(\bm x)\rangle\langle\psi(\bm x)|$. Each feature is therefore a fixed linear combination of the
-matrix elements of $\rho(\bm x)$, and
+\section{What the reservoir can and cannot add}\label{sec:theory}
+Write the per-qubit encoding as $\rho(\bm x)=\bigotimes_{l=1}^N\rho_l(\bm x)$, $\rho_l=|q_l\rangle\langle q_l|$,
+$|q_l\rangle=\cos\tfrac{\theta_l}{2}|0\rangle+e^{i\theta_{N+l}}\sin\tfrac{\theta_l}{2}|1\rangle$, and let
 \begin{equation}
-  \mathrm{span}\{p_k\}\subseteq\mathcal F_\rho=\mathrm{span}\{\rho_{ij}(\bm x)\}.
+  \mathcal F_\rho=\big\{\bm x\mapsto\mathrm{Tr}[H\rho(\bm x)]\ :\ H=H^\dagger\in\mathbb C^{2^N\times2^N}\big\}
 \end{equation}
-With a linear readout, the reservoir can only pick a subspace of $\mathcal F_\rho$, which is fixed by the encoding.
-Two consequences follow and are confirmed numerically (Fig.~\ref{fig:reservoir}):
+be the real function space spanned by the matrix elements of $\rho(\bm x)$.
+
+\begin{proposition}[the reservoir selects a subspace]\label{prop:span}
+For any unitary $U$, the features $p_k(\bm x)=|\langle k|U|\psi(\bm x)\rangle|^2$ satisfy
+$\mathrm{span}\{p_k\}=\{\mathrm{Tr}[H\rho]:H\in\mathcal D_U\}\subseteq\mathcal F_\rho$, where
+$\mathcal D_U=\mathrm{span}_{\mathbb R}\{U^\dagger|k\rangle\langle k|U\}$ is a commutative algebra of dimension $2^N$.
+Hence $\dim\mathrm{span}\{p_k\}\le\min(2^N,\dim\mathcal F_\rho)$, and $\sum_kp_k\equiv1$.
+\end{proposition}
+\begin{proof}
+$p_k=\mathrm{Tr}[M_k\rho]$ with $M_k=U^\dagger|k\rangle\langle k|U$ and the trace is linear in $M_k$;
+the $M_k$ are orthogonal projectors summing to $I$.
+\end{proof}
+
+\begin{proposition}[product structure of $\mathcal F_\rho$]\label{prop:product}
+$\mathcal F_\rho=\mathrm{span}\big\{\prod_{l=1}^N\mathrm{Tr}[A_l\rho_l(\bm x)]\ :\ A_l=A_l^\dagger\in\mathbb C^{2\times2}\big\}$,
+and each factor lies in $\mathrm{span}\{1,\ \bm n_l(\bm x)\}$, where $\bm n_l=(\sin\theta_l\cos\theta_{N+l},
+\sin\theta_l\sin\theta_{N+l},\cos\theta_l)$ is the Bloch vector of qubit $l$. In particular $\dim\mathcal F_\rho\le4^N$.
+\end{proposition}
+\begin{proof}
+Product operators $\bigotimes_lA_l$ span the Hermitian matrices over $\mathbb R$, and
+$\mathrm{Tr}[(\bigotimes_lA_l)\bigotimes_l\rho_l]=\prod_l\mathrm{Tr}[A_l\rho_l]$.
+Writing $A_l=a_0I+\bm a\cdot\bm\sigma$ gives $\mathrm{Tr}[A_l\rho_l]=a_0+\bm a\cdot\bm n_l$.
+\end{proof}
+
+\begin{corollary}[classical access to the same space]\label{cor:classical}
+The product random features $f_k(\bm x)=\prod_l\mathrm{Tr}[A_{k,l}\rho_l(\bm x)]$ with random Hermitian $A_{k,l}$
+lie in $\mathcal F_\rho$ and cost $O(N)$ operations each, without a $2^N$-dimensional state.
+The tensor random projection of Sec.~\ref{sec:apps} ($\mathrm{Re}\,\langle\psi|R_k|\psi\rangle$, GUE $R_k$) also lies in
+$\mathcal F_\rho$ but costs $O(4^N)$ per feature.
+\end{corollary}
+
+\begin{proposition}[readout cost on hardware]\label{prop:shots}
+Let each $p_k$ be estimated from $S$ shots. Then $\mathrm{Var}\,\hat p_k=p_k(1-p_k)/S$; for a Haar reservoir
+$\mathbb E\,p_k=2^{-N}$, so the relative standard deviation is $\approx\sqrt{2^N/S}$ and a relative accuracy $\varepsilon$
+on the features needs $S\gtrsim2^N/\varepsilon^2$ shots per circuit. The second derivative
+$\partial^2p_k/\partial x^2=\sum_{ij}\partial_{\theta_i\theta_j}p_k\,\theta_i'\theta_j'+\sum_i\partial_{\theta_i}p_k\,\theta_i''$
+requires $O(N^2)$ parameter-shifted circuits, so one collocation point costs $O(N^2\,2^N/\varepsilon^2)$ shots.
+\end{proposition}
+\begin{proof}
+Multinomial sampling; the parameter-shift rule \citep{mitarai2018qcl,schuld2019gradients} gives each
+$\partial_{\theta_i\theta_j}p_k$ from four shifted circuits, and there are $(2N)^2$ pairs.
+\end{proof}
+
+\begin{corollary}[no advantage from feature evaluation]\label{cor:cost}
+For $m=2^N$ features at $M$ points, the quantum readout costs $O(MN^2 2^N/\varepsilon^2)$ shots, while the classical
+product features of Corollary~\ref{cor:classical} cost $O(MN2^N)$ operations, with the same function space
+$\mathcal F_\rho$ available to both. The ratio is $N/\varepsilon^2\ge1$ for any useful $\varepsilon<1$.
+\end{corollary}
+
+Together, Propositions~\ref{prop:span}--\ref{prop:shots} say that (i) what a quantum reservoir PINN can represent is fixed
+by the encoding, (ii) the same space is classically accessible at linear cost in $N$, and (iii) reading it out on hardware
+is more expensive than computing it classically. A benefit of the quantum device can therefore only come from the
+particular $2^N$-dimensional subspace that a reservoir selects; Sections~\ref{sec:kirsch}--\ref{sec:apps} test whether that
+subspace is better than random ones.
+On the single TSV ($N=8$, 3 seeds), the product random features of Corollary~\ref{cor:classical} reach
+$3.5\times10^{-3}$ against $3.9\times10^{-3}$ for the Haar reservoir, with the same best input scale and the same
+per-seed ordering ($5.1/1.6/5.5\times10^{-3}$ versus $5.8/1.8/5.6\times10^{-3}$): the classical $O(N)$-cost
+features are at least as good. The same holds on the Allen--Cahn equation (Sec.~\ref{sec:pf}; $N=8$, 5 seeds):
+$8.1\times10^{-3}$ for product features against $1.0\times10^{-2}$ for the reservoir, with the same best scale in every seed.
+
+\begin{remark}
+Proposition~\ref{prop:shots} concerns outcome probabilities. Observables with $O(1)$ expectation values
+(e.g.\ a few Pauli strings) avoid the $2^N$ factor in $S$ but give fewer features; this is left for future work.
+\end{remark}
+
+Two numerical consequences are confirmed in Fig.~\ref{fig:reservoir}:
 (i) if every qubit receives the same input, $\dim\mathcal F_\rho$ is small and the reservoir does not matter
 (changing the Ising time or couplings leaves the PDE error unchanged to three digits; at $N=8$ only 152 of 256
 features are independent);
 (ii) with a per-qubit encoding, $\dim\mathcal F_\rho$ grows like $4^N$ and a generic reservoir (Clifford+T, Ising, Haar)
-improves the error by two orders of magnitude over no reservoir or a Clifford-only reservoir, in line with
-\citet{ikeda2026qerc}.
-The same argument shows that a classical random projection of $\mathcal F_\rho$ (tensor RP) has the same expressive
-power as the quantum reservoir; the quantum device only provides access to $\mathcal F_\rho$ with $N$ qubits.
+improves the error by two orders of magnitude over no reservoir or a Clifford-only reservoir (as observed for
+classification by \citet{ikeda2026qerc}): a reservoir that mixes the computational basis is needed to select a rich subspace,
+but any generic one does.
 
 \begin{figure}[t]
   \centering\includegraphics[width=\linewidth]{qerc_reservoir.pdf}
-  \caption{Effect of the reservoir for per-qubit encoding (Kirsch, PDE only). TODO: update caption to the figure.}
+  \caption{Reservoir and function space (Kirsch, PDE only). (a) Rank of the feature matrix versus the number of qubits for one reservoir and for two reservoirs combined, with the nominal $2^N$. (b) PDE error versus the Ising evolution time ($N=8$, two seeds) and the range of classical random features with 256 features. (c) Supervised fit of the exact solution versus the PDE-only solve, QERC ($N=8$) and classical random features.}
   \label{fig:reservoir}
 \end{figure}
 
@@ -262,6 +340,93 @@ or classical: a random reservoir picks a random $2^N$-dimensional subspace of a 
 overlap with the target shrinks exponentially. A benefit would require a reservoir designed for the problem.
 
 % =====================================================================
+\section{Phase-field equations}\label{sec:pf}
+\subsection{Problems and solver}
+We take the benchmarks of \citet{raissi2019pinn} and \citet{wight2021adaptive}, $x\in[-1,1]$, $t\in[0,1]$, periodic:
+\begin{align}
+  \text{Allen--Cahn:}\quad & u_t-10^{-4}u_{xx}+5u^3-5u=0,\qquad u(0,x)=x^2\cos\pi x,\\
+  \text{Cahn--Hilliard:}\quad & u_t=\mu_{xx},\quad \mu=\gamma_2(u^3-u)-\gamma_1u_{xx},\qquad
+  \gamma_1=10^{-6},\ \gamma_2=10^{-2},\quad u(0,x)=-\cos2\pi x,
+\end{align}
+plus a smooth Cahn--Hilliard control ($\gamma_2=1$, $\gamma_1=0.02$). Both are gradient flows of a Ginzburg--Landau
+energy; the Cahn--Hilliard flow also conserves $\int u\,\mathrm dx$. The interfaces are about $0.04$ (Allen--Cahn at
+$t=1$) and $0.01$ (Cahn--Hilliard) wide.
+The solution is expanded in fixed features of $\bm z(x)=(\cos\pi x,\sin\pi x)$, which makes it periodic by
+construction. We march in time with BDF2 ($\Delta t=10^{-3}$), linearize $u^3$ by Newton's method and solve one
+least-squares problem per Newton iteration; Cahn--Hilliard is solved in mixed form, so only second derivatives occur
+and $u$ and $\mu$ are found together. The feature matrices are built once and reused at every step.
+References are Fourier pseudo-spectral solutions with ETDRK4 ($\Delta t=10^{-5}$); with an exact Fourier basis our time
+stepping reproduces them to $4.9\times10^{-6}$ (Allen--Cahn) and $6\times10^{-10}$ (smooth Cahn--Hilliard).
+For comparison we train a variational QPINN (6 qubits, 6 data re-uploading layers, 223 parameters) and classical PINNs
+(a $4\times64$ tanh MLP and one with 217 parameters) on the same space--time residual and initial-condition loss with
+Adam ($2\times10^4$ steps).
+
+\begin{table}[t]
+  \centering
+  \caption{Allen--Cahn: relative $L_2$ error of $u$ at $t=1$. Least-squares models: geometric mean of the best scale per
+           seed (5 seeds at $N=8$, 3 at $N=10$). Trained models: 3 seeds.}
+  \label{tab:ac}
+  \begin{tabular}{lcc}
+    \toprule
+    Model & $N=8$ (256 features) & $N=10$ (1024 features) \\
+    \midrule
+    QERC, Haar (least squares)    & $1.0\times10^{-2}$ & $9.9\times10^{-3}$ \\
+    tanh RF (least squares)       & $1.0\times10^{-3}$ & $\bm{5.3\times10^{-6}}$ \\
+    Fourier RF (least squares)    & $2.3\times10^{-3}$ & $3.4\times10^{-5}$ \\
+    \midrule
+    Variational QPINN (Adam)      & 0.76 & -- \\
+    PINN, $4\times64$ (Adam)      & 0.13 & -- \\
+    Adaptive PINN \citep{wight2021adaptive} & \multicolumn{2}{c}{$2.33\times10^{-2}$} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Results}
+Table~\ref{tab:ac} shows three things. First, the least-squares solvers, quantum or classical, are far more accurate
+than the trained models: the variational QPINN does not capture the dynamics, our plain PINN reaches 0.13, and even the
+adaptive PINN of \citet{wight2021adaptive} is worse than every least-squares model.
+Second, the classical random features improve by two to three orders of magnitude from 256 to 1024 features, while the
+quantum reservoir stays at $10^{-2}$. Proposition~\ref{prop:product} explains why more qubits need not help: $\mathcal F_\rho$
+consists of products of first-degree trigonometric functions of bounded angles, whose spatial resolution is set by the
+input scale rather than by $N$, and a sharp interface needs fine resolution. Third, every model preserves energy
+dissipation: the discrete free energy decreases at every step ($\max_n(E^{n+1}-E^n)\le0$ to round-off).
+For the tanh and Fourier features at $N=10$ the best scale lies at the upper edge of the sweep, so their errors are
+upper bounds.
+
+On the sharp Cahn--Hilliard benchmark ($N=8$, 5 seeds), tanh and Fourier features reach $6.9\times10^{-4}$ and
+$1.4\times10^{-3}$, more than ten times better than the best adaptive PINN of \citet{wight2021adaptive} ($9.5\times10^{-3}$);
+the quantum reservoir reaches $5.0\times10^{-2}$. Mass is conserved to $7\times10^{-6}$ (classical) and $3\times10^{-4}$
+(quantum). At $N=10$ the gap widens: tanh features reach $5.6\times10^{-7}$, Fourier features
+$2.6\times10^{-4}$ (both at the upper edge of the sweep, hence upper bounds) and the reservoir $6.1\times10^{-3}$.
+The smooth control is solved to $10^{-9}$--$10^{-10}$ by all models and does not discriminate between them.
+
+\paragraph{With data.} Data-assisted PINNs add measured or simulated values of the solution to the loss. We add 1000
+reference values (100 random $x$ at each of $t=0.1,0.2,\dots,1$): to the loss of the trained models (weight 100) and as
+extra least-squares rows at those time steps (weights 0.1 and 1 relative to $1/\Delta t$). The data rescue the trained
+models (3 seeds): the PINN improves from 0.13 to $7.3\times10^{-4}$ and the variational QPINN from 0.76 to
+$5.2\times10^{-2}$, which is still 70 times worse than the PINN and costs 1.8\,h per seed on an RTX 4090 against 7\,min.
+The least-squares solvers hardly change (same seeds 0--2, weight 1): reservoir $1.15\times10^{-2}\to1.12\times10^{-2}$,
+tanh $9.7\times10^{-4}\to1.0\times10^{-3}$, Fourier $1.9\times10^{-3}\to1.9\times10^{-3}$. Their error is set by what the
+features can represent, not by the information they are given: the best least-squares fit of the reference at $t=1$ by the
+same reservoir features ($6.9\times10^{-3}$, seed 0) is already close to its PDE error ($9.0\times10^{-3}$).
+
+\subsection{Two dimensions: a shrinking circle}
+On $(x,y)\in[-1,1]^2$ (periodic) we solve $u_t=\varepsilon^2\Delta u+u-u^3$ with
+$u(0)=\tanh\big((R_0-r)/(\sqrt2\varepsilon)\big)$, $\varepsilon=0.05$, $R_0=0.5$, up to $t=20$, with features of
+$(\cos\pi x,\sin\pi x,\cos\pi y,\sin\pi y)$ on $64\times64$ points. In the sharp-interface limit the circle shrinks as
+$R(t)^2=R_0^2-2\varepsilon^2t$. At $N=10$ (3 seeds) the errors at $t=20$ are $3.5\times10^{-3}$ (reservoir),
+$2.6\times10^{-3}$ (tanh) and $2.1\times10^{-3}$ (Fourier); all models reproduce the radius $R=0.387=\sqrt{0.15}$ and keep the
+energy decreasing. At $N=8$ all are at $5.2$--$5.5\times10^{-2}$. The wider interface (about $0.07$) narrows the gap to the
+reservoir to a factor of 1.7, but the reservoir is still the least accurate (scales swept from $\times0.25$ to $\times32$;
+the best values are interior).
+
+Because the feature matrices do not depend on the coefficients or the initial condition, one quantum feature set
+solves families of problems: with the same $N=8$ reservoir we solved nine Allen--Cahn problems (three initial conditions,
+$D\in\{10^{-4},3\times10^{-4},10^{-3}\}$) with errors from $9\times10^{-4}$ to $10^{-1}$, the error growing as the
+interfaces sharpen. On hardware the circuits would be measured once for all of them, whereas a variational QPINN is
+retrained for each problem.
+
+% =====================================================================
 \section{Shot noise and an energy formulation}\label{sec:shots}
 On hardware, $p_k$ and its derivatives are estimated from $S$ shots per circuit, with derivatives from the
 parameter-shift rule \citep{mitarai2018qcl,schuld2019gradients}.
@@ -304,22 +469,33 @@ Even so, $10^7$ shots per circuit still give 1.4\% error, 70 times the noiseless
 
 % =====================================================================
 \section{Discussion}
-% TODO: expand.
-\begin{itemize}
-  \item The design freedom of a quantum reservoir PINN lies in the encoding. The reservoir only needs to be generic.
-  \item Whatever advantage appears over simple classical features is reproduced by a classical model with the same
-        tensor-product structure; the quantum claim reduces to accessing $\mathcal F_\rho$ with $N$ qubits,
-        which matters only when $4^N$ classical cost is prohibitive.
-  \item Tuning of the classical baseline changes conclusions by more than an order of magnitude and must be reported.
-  \item Shot noise, not expressivity, limits hardware use. Formulations with low derivative order and readouts with
-        larger probabilities (few observables instead of $2^N$ outcomes) are the next steps.
-\end{itemize}
+\paragraph{Where the accuracy comes from.} The large gap between trained and least-squares models (Table~\ref{tab:ac})
+is not quantum: it comes from replacing a non-convex optimization by a linear solve, as in classical extreme learning
+machines and random feature methods \citep{dwivedi2020pielm,chen2022rfm,zhou2026drfm}. A quantum circuit used as a
+fixed feature map inherits this benefit, but so does any classical feature map.
+
+\paragraph{What the quantum part can add.} By Propositions~\ref{prop:span}--\ref{prop:shots}, the representable space is
+set by the encoding, is classically accessible at $O(N)$ cost per feature, and is more expensive to read out on
+hardware than to compute. Numerically, classical controls with the same tensor-product structure reproduce the reservoir
+(TSV), and simple random features beat it on sharp interfaces by two to three orders of magnitude at $N=10$.
+A quantum benefit would need a reservoir designed for the problem, or a readout whose cost does not grow as $2^N$.
+
+\paragraph{Fair baselines.} Tuning changes conclusions by more than an order of magnitude: an untuned classical baseline
+looked equal to the quantum model, and widening the scale sweep improved the cosine features at $N=12$ by a factor of 40.
+We recommend reporting the scale sweep and checking that the selected value is interior.
+
+\paragraph{Limitations.} All quantum results are noiseless state-vector simulations except for the shot-noise model of
+Sec.~\ref{sec:shots}; the phase-field problems are one-dimensional; and the reservoirs are generic (Haar, Clifford+T,
+Ising) rather than designed. Two-dimensional phase-field problems and readouts with $O(1)$ expectation values are the
+natural next steps.
 
 \section{Conclusion}
-% TODO
-For linear solid mechanics, a quantum reservoir with least-squares readout is a working PINN solver, but under a fair
-comparison it matches classical random features with the same structure and trails cosine features.
-We hope the benchmark and the controls serve as a baseline for future claims.
+A quantum reservoir with a least-squares readout is a working PDE solver: it avoids the optimization failure of
+variational QPINNs and, on phase-field equations, outperforms trained PINNs. Under a fair comparison, however, its
+accuracy is matched or exceeded by classical random features with the same least-squares solver, its function space is
+classically accessible at linear cost in the number of qubits, and its hardware readout is more expensive than classical
+evaluation. We hope the benchmark, the controls and the propositions serve as a baseline for future claims of quantum
+advantage in physics-informed learning.
 
 \paragraph{Code and data.} \url{https://github.com/mmc-research-group/nishioka-qpinn-solid}
 

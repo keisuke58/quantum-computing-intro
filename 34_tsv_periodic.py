@@ -236,6 +236,8 @@ def main():
     ap.add_argument("--h", type=float, default=0.005)
     ap.add_argument("--with_tensor", action="store_true")
     ap.add_argument("--out", default="results/tsv_periodic.json")
+    ap.add_argument("--models", default=None, help="comma list (default: all)")
+    ap.add_argument("--scales", default=None, help="comma list overriding the scale grid of the selected models")
     a = ap.parse_args()
     m = 2**a.N
     rows = []
@@ -257,6 +259,11 @@ def main():
         }
         if a.with_tensor:
             grid["tensor-RP"] = ([2.0], scaled(lambda sd, s: C.make_tensor_rp(a.N, sd, s), L), True)
+        if a.models:
+            grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
+        if a.scales:
+            sc = [float(x) for x in a.scales.split(",")]
+            grid = {k: (sc, ctor, ch) for k, (_, ctor, ch) in grid.items()}
         for sd in range(a.seeds):
             pts = collocation(L, 2000, 6000, 300, 200, 10 + sd)
             for name, (scales, ctor, chunk) in grid.items():
