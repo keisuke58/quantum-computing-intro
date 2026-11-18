@@ -56,6 +56,7 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | 26 | `te_*`（`TEMODEL=fixedmatch`） | **固定の埋め込みで，パラメータ数を TE-QPINN にそろえたもの**（変分回路を深くする：Burgers は 20 層 = 240，Allen–Cahn・CH は 17 層 = 204．著者の回路のコードは層数を変えるだけ）．5 シード．`git pull` してから 3 本：`qsub -v JOB=te_burgers,TEMODEL=fixedmatch scripts/pbs_job.sh`，`JOB=te_ac,TEMODEL=fixedmatch`，`JOB=te_ch,TEMODEL=fixedmatch`．GPU が空きしだい，23〜25 番と並べてよい（同時に 4 本まで） | `results/server/te_authors_burgers_fixedmatch.json`，`te_authors_ac_fixedmatch.json`，`te_authors_ch_fixedmatch.json` | 同じ問題の fixed の 3〜4 倍 | 完了（2026-11-19） |
 | 27 | `pf_ch2d` | **2 次元の Cahn–Hilliard を最小二乗の 3 手法で比べる**（量子リザバー，tanh，Fourier）．楕円の液滴が円に戻る問題（ε = 0.05，t = 0.4 まで，64 × 64 点，混合形）．`68_ch2d_qerc.py`．2 本：`qsub -v JOB=pf_ch2d,PFN=8 scripts/pbs_job.sh` と `PFN=10`．これは `.venv`（JAX）で動く．23〜26 番と並べてよい（同時に 4 本まで） | `results/server/ch2d_N8.json`，`ch2d_N10.json` | N = 8 は 1〜2 時間，N = 10 は半日ほど | 未実行 |
 | 28 | `te_ac`（`TEOUTER=1500`） | **Allen–Cahn を長く学習する**．24 番は 300 ステップで打ち切られ，因果性の重みが最後の時刻まで開かなかった（`min w` が 0.00 のまま，誤差 70〜110 %）．著者の図のデータは 762 ステップ分ある．上限を 1500 にして，重みが開いたら止まる著者の停止条件のまま回す．2 本：`qsub -v JOB=te_ac,TEMODEL=TE,TEOUTER=1500 scripts/pbs_job.sh` と `TEMODEL=classical`（固定の埋め込みは 24 番でロスが 0.11 から動かないので回さない）．`git pull` を先に | `results/server/te_authors_ac_TE_outer1500.json`，`te_authors_ac_classical_outer1500.json` | TE は 1 シード 最大 4 時間 | 完了（2026-11-18） |
+| 29 | `te_*`（`TEMODEL=rakala`） | **固定の埋め込み = Rakala さんのモデル**（村松先生の訂正，2026-11-18：固定の埋め込みは `github.com/GeetRakala/QPINN` のモデルを指す）．古典の層 → 量子回路（AngleEmbedding ＋ StronglyEntanglingLayers，4 量子ビット × 4 層）→ 古典の層．元の形（65 パラメータ），improved（261），improved を TE-QPINN の数にそろえたもの（Burgers 248，Allen–Cahn 209）の 3 つ．5 シード．`git pull` してから 3 本：`qsub -v JOB=te_burgers,TEMODEL=rakala scripts/pbs_job.sh`，`qsub -v JOB=te_ac,TEMODEL=rakala,TEOUTER=1500 scripts/pbs_job.sh`，`qsub -v JOB=te_ch,TEMODEL=rakala,TEOUTER=1500 scripts/pbs_job.sh` | `results/server/te_authors_burgers_rakala.json`，`te_authors_ac_rakala_outer1500.json`，`te_authors_ch_rakala_outer1500.json` | Burgers は数時間，Allen–Cahn・CH は 1 シード最大数時間 | 未実行 |
 
 （`seeds5` / `tsv` / `array` は Claude 側の環境で回したので不要）
 
@@ -73,12 +74,13 @@ push できないときは `results/server/*.json` をチャットにアップ�
 |---|---|
 | `TE` | 学習する埋め込み（小さな NN が量子ビットごとの倍率を出す）＋ 変分回路．著者の TE-QPINN |
 | `NONE` / `CHEBYSHEV` / `TOWER` | 固定の埋め込み（座標をそのまま／Chebyshev 型）＋ 同じ変分回路．著者のコードにある選択肢 |
+| `RAKALA` / `RAKALA-imp` / `RAKALA-match` | **固定の埋め込み（先生の意図したもの）**：Rakala さんの QPINN．古典の層で前後を挟んだ回路で，回路への入力は決まった角度埋め込み（29 番） |
 | `NONE-match` など | 同じ固定の埋め込みで，変分回路を深くしてパラメータ数を `TE` にそろえたもの（26 番） |
 | `PINN-3x10` / `PINN-2x13` / `PINN-match` | パラメータ数をそろえた古典 PINN（著者の FNN クラス） |
 | `PINN-4x64` | 大きめの古典 PINN（参考） |
 | `TE-twin` | `TE` の回路だけを，同じ形の古典の関数（角度の三角関数の積の線形和）に置き換えたもの（こちらで追加） |
 
-- **主な比較は，パラメータ数をそろえた 4 つ**：`TE`，`*-match`（固定の埋め込みを深くしたもの，26 番），`PINN-match`（Burgers は `PINN-2x13`・`PINN-3x10`），`TE-twin`．
+- **主な比較は，パラメータ数をそろえたもの**：`RAKALA-match`（固定の埋め込み，29 番），`TE`，`*-match`（Chebyshev 型の固定の埋め込みを深くしたもの，26 番），`PINN-match`（Burgers は `PINN-2x13`・`PINN-3x10`），`TE-twin`．
   5 層のままの固定の埋め込み（60 パラメータ）と `PINN-4x64` は，著者の設定の再現と参考の値として残す
 - 順番：21 番（1 回だけ）→ 22 番 → 23 番（3 本同時）→ 24 番（3 本同時）→ 25 番（3 本同時）．自分の GPU ジョブは同時に 4 本までにする
 - 23・24 番は `TEMODEL` を必ず付ける（付けないとすぐ止まる）．ログは `logs/pbs_te_ac_<TEMODEL>.log` など

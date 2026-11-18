@@ -68,6 +68,9 @@
   - 因果性つきは 762 ステップ分の履歴があり，公開のノートブックの上限（300）より長い．図を作ったときの設定は公開版と違う可能性がある
   - 適応 PINN（2.3e-2）やこちらの最小二乗（tanh 1e-3，量子リザバー 1e-2）より悪い．指示書 24 番の再現の目安にする
 - こちらの計算：`67_te_qpinn_authors.py`（著者のセルをそのまま実行）．指示書の 21〜24 番
+- 村松先生の訂正（2026-11-18）：提案の「固定の埋め込み」は，Raissi らではなく G. Rakala の QPINN（https://github.com/GeetRakala/QPINN ，commit `4fb16f1`）を指す．
+  古典の層 → 回路（AngleEmbedding ＋ StronglyEntanglingLayers，4 量子ビット × 4 層）→ 古典の層．`67` に `RAKALA`，`RAKALA-imp`，`RAKALA-match` として追加（指示書の 29 番）．
+  円柱後流での検証は `docs/qpinn_cylinder_improve_results.md`（回路を除いても精度は同じ，同じ大きさの古典 MLP が誤差約 1/2）
 
 ## 4. 論文での位置づけ（案）
 

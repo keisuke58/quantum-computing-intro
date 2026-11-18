@@ -22,6 +22,10 @@ Models
                qubit, so it gives the same angles as CHEBYSHEV; kept because the paper's tables use it)
   NONE-match, CHEBYSHEV-match, TOWER-match   the same fixed embeddings with more variational layers, so that the
                parameter count matches the TE-QPINN (20 layers = 240 for Burgers, 17 layers = 204 for Allen-Cahn)
+  RAKALA, RAKALA-imp, RAKALA-match   fixed embedding in the sense of Muramatsu (2026-11-18): G. Rakala's QPINN
+               (github.com/GeetRakala/QPINN), classical layers around a circuit with a fixed AngleEmbedding;
+               "original" (65 parameters), "improved" (261) and "improved" sized to the TE-QPINN. Re-implemented in
+               torch from his JAX notebook (same architecture and initialisation), trained in the same set-up here
   PINN-3x10 / PINN-2x13   their classical PINNs for Burgers (261 / 235 parameters; the TE-QPINN has 244)
   PINN-match   Allen-Cahn: their FNN class sized to the TE-QPINN parameter count (2 x 12 = 205 vs 204)
   PINN-4x64    their FNN class, 4 x 64 (reference size)
@@ -223,6 +227,48 @@ def make_model(name, pde, A, T, P, torch):
                 f = (f[:, :, None] * g[:, None, :]).reshape(a.shape[0], -1)
             return f @ C + b[0]
         return twin, [*net.parameters(), C, b], ang
+    if name.startswith("RAKALA"):
+        # G. Rakala's QPINN (github.com/GeetRakala/QPINN, qpinn.ipynb, commit 4fb16f1): classical layers around a circuit
+        # whose embedding is fixed (PennyLane AngleEmbedding, no trainable factor in the angles). His code is JAX and
+        # written for the cylinder wake (3 inputs, 3 outputs); this is the same architecture and initialisation in
+        # torch, with the 2 inputs (t, x) and 1 output of these problems:
+        #   RAKALA        his "original":  x01 -> sin(2 pi (W1 x01 + b1)) [2 -> n] -> circuit -> W2 q + b2 [n -> 1]
+        #   RAKALA-imp    his "improved":  x01 -> sin(2 pi (.)) [2 -> 16] -> tanh [16 -> n] -> circuit -> tanh [n -> 16] -> [16 -> 1]
+        #   RAKALA-match  "improved" with the hidden width chosen so that the parameter count matches the TE-QPINN
+        # circuit: AngleEmbedding (RX) + StronglyEntanglingLayers, n = 4 qubits, 4 layers, <Z_i>   (as in his notebook)
+        import pennylane as qml
+        rl = 4
+        rq = qml.QNode(lambda inputs, weights: (qml.AngleEmbedding(inputs, wires=range(nq)),
+                                                qml.StronglyEntanglingLayers(weights, wires=range(nq)),
+                                                [qml.expval(qml.PauliZ(wires=i)) for i in range(nq)])[-1],
+                       qml.device("default.qubit", wires=nq), interface="torch", diff_method="backprop")
+        x01 = lambda x: (x - db[0]) / (db[1] - db[0] + 1e-12)
+        par = lambda *shape, std: (std * torch.randn(*shape, device=dev)).requires_grad_(True)
+        zero = lambda n: torch.zeros(n, device=dev, requires_grad=True)
+        circ = lambda h, qw: torch.stack(list(rq(h, qw)), dim=-1).to(h.dtype)
+        if name == "RAKALA":
+            w1, b1, qw, w2, b2 = par(2, nq, std=0.1), zero(nq), par(rl, nq, 3, std=0.1), par(nq, 1, std=0.1), zero(1)
+
+            def rak(x):
+                h1 = torch.sin(2.0 * torch.pi * (x01(x) @ w1 + b1))
+                return (circ(h1, qw) @ w2 + b2)[:, 0]
+            return rak, [w1, b1, qw, w2, b2], None
+        hd = 16
+        if name == "RAKALA-match":      # parameters: 13 hd + 5 + 3 rl nq
+            target = n_par([torch.zeros(nl, nq, 3), *emb_net().parameters()])
+            hd = max(2, round((target - 5 - 3 * rl * nq) / 13))
+        w1, b1 = par(2, hd, std=(2.0 / 2) ** 0.5), zero(hd)
+        w2, b2 = par(hd, nq, std=(2.0 / hd) ** 0.5), zero(nq)
+        qw = par(rl, nq, 3, std=0.01)
+        w3, b3 = par(nq, hd, std=(2.0 / nq) ** 0.5), zero(hd)
+        w4, b4 = par(hd, 1, std=(2.0 / hd) ** 0.5), zero(1)
+
+        def rak(x):
+            h1 = torch.sin(2.0 * torch.pi * (x01(x) @ w1 + b1))
+            h2 = torch.tanh(h1 @ w2 + b2)
+            h3 = torch.tanh(circ(h2, qw) @ w3 + b3)
+            return (h3 @ w4 + b4)[:, 0]
+        return rak, [w1, b1, w2, b2, qw, w3, b3, w4, b4], (lambda x: torch.tanh(torch.sin(2.0 * torch.pi * (x01(x) @ w1 + b1)) @ w2 + b2))
     raise ValueError(name)
 
 
