@@ -13,7 +13,7 @@
 
 cd "${PBS_O_WORKDIR:?submit with qsub}"
 mkdir -p logs results/server
-exec > "logs/pbs_${JOB:?set JOB with -v JOB=...}${BC3D:+_$BC3D}${PFN:+_N$PFN}${QEMODEL:+_$QEMODEL}${TEMODEL:+_$TEMODEL}.log" 2>&1   # BC3D/PFN/QEMODEL/TEMODEL in the name: parallel runs must not share a log
+exec > "logs/pbs_${JOB:?set JOB with -v JOB=...}${BC3D:+_$BC3D}${PFN:+_N$PFN}${QEMODEL:+_$QEMODEL}${TEMODEL:+_$TEMODEL}${TEOUTER:+_outer$TEOUTER}.log" 2>&1   # BC3D/PFN/QEMODEL/TEMODEL in the name: parallel runs must not share a log
 
 unset LD_LIBRARY_PATH                         # PBS sets the system CUDA libs, which clash with the pip CUDA wheels
 export XLA_PYTHON_CLIENT_PREALLOCATE=false
