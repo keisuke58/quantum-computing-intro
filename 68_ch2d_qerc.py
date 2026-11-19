@@ -10,6 +10,12 @@ phi and mu are expanded in the same features of z = (cos pi x, sin pi x, cos pi 
 Newton iteration is one least-squares solve for both coefficient vectors, on the JAX device.
 Reference: 2D Fourier pseudo-spectral + ETDRK4 with linear stabilisation (as in 65_ch2d_numerics.py).
 
+Checked on CPU (2026-11-17) with the truncated Fourier basis K = 12 (881 functions) on the 64 x 64 grid:
+  eps = 0.1 (resolved: fit of phi(0) 1.5e-3):  error at t = 0.2 is 4e-4 / 6e-4 / 1e-3 for dt = 8e-3 / 4e-3 / 2e-3
+  eps = 0.05 (not resolved: fit of phi(0) 1.6e-2): error at t = 0.4 is 5.9e-2 / 8.7e-2 for dt = 8e-3 / 4e-3
+The error stays at the level of what the basis can represent and grows slowly with the number of steps (each step
+is a least-squares projection), so it is not reduced by a smaller dt. All models use the same dt = 4e-3.
+
   python 68_ch2d_qerc.py --check            # exact Fourier basis vs reference (time-step error), reference checks
   python 68_ch2d_qerc.py --N 8 --seeds 3
 """
@@ -116,7 +122,7 @@ def main():
     ap.add_argument("--N", type=int, default=8)
     ap.add_argument("--n", type=int, default=64, help="collocation grid n x n")
     ap.add_argument("--seeds", type=int, default=3)
-    ap.add_argument("--dt", type=float, default=2e-3)
+    ap.add_argument("--dt", type=float, default=4e-3)
     ap.add_argument("--T", type=float, default=0.4)
     ap.add_argument("--models", default="QERC-Haar,tanh-RF,Fourier")
     ap.add_argument("--scales", default=None)

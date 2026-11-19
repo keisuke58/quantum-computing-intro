@@ -100,19 +100,20 @@ run_job() {
         .venv_te/bin/python -u 67_te_qpinn_authors.py --repo "${TE_REPO:-$HOME/te-qpinns}" --pde $PDE --smoke --seeds 1 --outer 2
       done ;;
     te_burgers|te_ac|te_ch)
-      # TEMODEL = TE | fixed | fixedmatch | classical (one qsub each; commas cannot go through qsub -v). Finished runs are skipped on resubmission.
+      # TEMODEL = TE | fixed | fixedmatch | rakala | classical (one qsub each; commas cannot go through qsub -v). Finished runs are skipped on resubmission.
       TEP=${1#te_}
-      case "${TEMODEL:?set TEMODEL=TE|fixed|fixedmatch|classical}:$TEP" in
+      case "${TEMODEL:?set TEMODEL=TE|fixed|fixedmatch|rakala|classical}:$TEP" in
         TE:*) TEM=TE ;;
         fixed:burgers) TEM=TOWER,NONE ;;
         fixed:ac|fixed:ch) TEM=CHEBYSHEV,NONE ;;
         fixedmatch:burgers) TEM=TOWER-match,NONE-match ;;
         fixedmatch:ac|fixedmatch:ch) TEM=CHEBYSHEV-match,NONE-match ;;
+        rakala:*) TEM=RAKALA,RAKALA-imp,RAKALA-match ;;
         classical:burgers) TEM=PINN-3x10,PINN-2x13,TE-twin ;;
         classical:ac|classical:ch) TEM=PINN-match,PINN-4x64,TE-twin ;;
         *) echo "unknown TEMODEL=$TEMODEL"; return 1 ;;
       esac
-      .venv_te/bin/python -u 67_te_qpinn_authors.py --repo "${TE_REPO:-$HOME/te-qpinns}" --pde $TEP --models $TEM --seeds ${TESEEDS:-5} --out results/server/te_authors_${TEP}_${TEMODEL}.json ;;
+      .venv_te/bin/python -u 67_te_qpinn_authors.py --repo "${TE_REPO:-$HOME/te-qpinns}" --pde $TEP --models $TEM --seeds ${TESEEDS:-5} ${TEOUTER:+--outer $TEOUTER} --out results/server/te_authors_${TEP}_${TEMODEL}${TEOUTER:+_outer$TEOUTER}.json ;;
     bigN)
       for N in 10 12; do
         python 30_qerc_tsv_single.py --N $N --seeds 3 --out results/server/tsv_single_N${N}.json
