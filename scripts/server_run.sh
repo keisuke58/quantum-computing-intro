@@ -119,7 +119,7 @@ run_job() {
         classical:ac|classical:ch) TEM=PINN-match,PINN-4x64,TE-twin ;;
         *) echo "unknown TEMODEL=$TEMODEL"; return 1 ;;
       esac
-      .venv_te/bin/python -u 67_te_qpinn_authors.py --repo "${TE_REPO:-$HOME/te-qpinns}" --pde $TEP --models $TEM --seeds ${TESEEDS:-5} ${TEOUTER:+--outer $TEOUTER} --out results/server/te_authors_${TEP}_${TEMODEL}${TEOUTER:+_outer$TEOUTER}.json ;;
+      .venv_te/bin/python -u 67_te_qpinn_authors.py --repo "${TE_REPO:-$HOME/te-qpinns}" --pde $TEP --models $TEM --seeds ${TESEEDS:-5} ${TEOUTER:+--outer $TEOUTER} ${TEVAR:+--variant $TEVAR} --out results/server/te_authors_${TEP}_${TEMODEL}${TEVAR:+_$TEVAR}${TEOUTER:+_outer$TEOUTER}.json ;;
     bigN)
       for N in 10 12; do
         python 30_qerc_tsv_single.py --N $N --seeds 3 --out results/server/tsv_single_N${N}.json
