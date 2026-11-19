@@ -37,6 +37,37 @@ def make_qerc(N, seed, scale):
     return feat
 
 
+def make_qerc_reup(N, seed, scale, R):
+    """Reservoir with entangled (re-uploaded) encoding: R times [encode every qubit, then a fixed Haar unitary],
+        |psi(x)> = U_R V_R(x) ... U_1 V_1(x) |0..0>,   V_r(x) = prod_l Rz(phi_{r,l}(x)) Ry(theta_{r,l}(x)),
+    with the same angle map as make_qerc (fresh random W_r, b_r per layer) and features p_k = |<k|psi(x)>|^2.
+    R = 1 is the class of make_qerc. For R >= 2 the input enters after entanglement, so psi(x) is not a product
+    state before the last unitary: the features leave the function space F_rho of the product encoding, and the
+    O(N) classical evaluation of that space (make_product_rf) no longer applies."""
+    g = np.random.default_rng(3000 + seed)
+    Ws = [jnp.asarray(g.normal(size=(2, 2 * N)) * scale) for _ in range(R)]
+    bs = [jnp.asarray(g.normal(size=2 * N)) for _ in range(R)]
+    Us = []
+    for _ in range(R):
+        z = (g.normal(size=(2**N,) * 2) + 1j * g.normal(size=(2**N,) * 2)) / np.sqrt(2)
+        q, r = np.linalg.qr(z); Us.append(jnp.asarray(q * (np.diag(r) / np.abs(np.diag(r)))))
+
+    def feat(x):
+        zz = _z(x)
+        psi = jnp.zeros(2**N, dtype=complex).at[0].set(1.0)
+        for W, b, U in zip(Ws, bs, Us):
+            ang = jnp.pi * (jnp.tanh(zz @ W + b) + 1) / 2
+            psi = psi.reshape((2,) * N)
+            for l in range(N):
+                c, s_ = jnp.cos(ang[l] / 2), jnp.sin(ang[l] / 2)
+                e = jnp.exp(0.5j * ang[N + l])
+                V = jnp.array([[c / e, -s_ / e], [s_ * e, c * e]])          # Rz(phi) Ry(theta)
+                psi = jnp.moveaxis(jnp.tensordot(V, psi, axes=([1], [l])), 0, l)
+            psi = U @ psi.reshape(-1)
+        return jnp.abs(psi) ** 2
+    return feat
+
+
 def make_product_rf(N, seed, scale):
     """Product random features with the same encoding (angles) as make_qerc:
     f_k(x) = prod_l <q_l(x)| A_{k,l} |q_l(x)>, A_{k,l} random 2x2 Hermitian. In the QERC function space,
@@ -215,6 +246,9 @@ def main():
         "tanh-RF": ([8, 16, 32, 64], lambda sd, s: make_tanh(m, sd, s)),
         "Fourier": ([8, 16, 32, 64], lambda sd, s: make_fourier(m, sd, s)),
         "product-RF": ([2, 4, 8, 16, 32], lambda sd, s: make_product_rf(a.N, sd, s)),
+        "QERC-reup2": ([0.5, 1, 2, 4, 8, 16], lambda sd, s: make_qerc_reup(a.N, sd, s, 2)),
+        "QERC-reup3": ([0.5, 1, 2, 4, 8, 16], lambda sd, s: make_qerc_reup(a.N, sd, s, 3)),
+        "QERC-reup1": ([2, 4, 8, 16, 32], lambda sd, s: make_qerc_reup(a.N, sd, s, 1)),
     }
     grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
     if a.scales:

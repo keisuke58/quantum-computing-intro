@@ -70,6 +70,8 @@ run_job() {
     pf_ch2d)
       python -u 68_ch2d_qerc.py --check
       python -u 68_ch2d_qerc.py --N ${PFN:-8} --seeds ${PFSEEDS:-3} --out results/server/ch2d_N${PFN:-8}.json ;;
+    pf_ac_reup)
+      python -u 52_allen_cahn_qerc.py --D 1e-4 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --models QERC-reup1,QERC-reup2,QERC-reup3 --out results/server/allen_cahn_N${PFN:-8}_reup.json ;;
     pf_ac_product)
       python -u 52_allen_cahn_qerc.py --D 1e-4 --N 8 --seeds 5 --models QERC-Haar,product-RF --scales 2,4,8,16 --out results/server/allen_cahn_N8_product.json ;;
     pf_ac2d_low)
