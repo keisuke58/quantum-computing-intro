@@ -249,6 +249,8 @@ def main():
         "QERC-reup2": ([0.5, 1, 2, 4, 8, 16], lambda sd, s: make_qerc_reup(a.N, sd, s, 2)),
         "QERC-reup3": ([0.5, 1, 2, 4, 8, 16], lambda sd, s: make_qerc_reup(a.N, sd, s, 3)),
         "QERC-reup1": ([2, 4, 8, 16, 32], lambda sd, s: make_qerc_reup(a.N, sd, s, 1)),
+        "QERC-reup4": ([4, 8, 16, 32, 64], lambda sd, s: make_qerc_reup(a.N, sd, s, 4)),
+        "QERC-reup6": ([4, 8, 16, 32, 64], lambda sd, s: make_qerc_reup(a.N, sd, s, 6)),
     }
     grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
     if a.scales:
