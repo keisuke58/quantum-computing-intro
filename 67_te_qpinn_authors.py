@@ -142,7 +142,7 @@ def cached_reference(pde, t_grid, x_grid, smoke, outdir):
 
 
 # ---------------- set-up of the authors' namespaces ----------------
-def setup(pde, repo, threads, smoke):
+def setup(pde, repo, threads, smoke, variant="authors"):
     ipython_stub()
     A = {"__name__": "te_authors"}
     if pde == "burgers":
@@ -158,6 +158,9 @@ def setup(pde, repo, threads, smoke):
         P = A                                   # their FNN class and model_pinn live in the comparison notebook
     else:
         run_cell(A, repo, NB_AC, 0, "USE_CAUSALITY")
+        if variant == "sched":     # ours, not the authors': double precision and a causality schedule (see --variant)
+            A["torch"].set_default_dtype(A["torch"].float64)
+            A["eps_array"] = [1e-2, 1e-1, 1.0, 1e1, 1e2]
         if smoke:
             A["T_COLOC_POINTS"], A["X_COLOC_POINTS"] = 6, 8
         run_cell(A, repo, NB_AC, 1, "interior_colloc")
@@ -386,6 +389,8 @@ def train_ac(A, torch, model, params, outer, mse_fn):
             if j % 10 == 0:
                 print(f"  step {j} loss {hist[-1]:.3e} MSE_ref {mse[-1]:.3e} min w {torch.min(A['temporal_weights']).item():.2f}",
                       flush=True)
+        print(f"  eps {eps}: {j + 1} steps, loss {hist[-1]:.3e} MSE_ref {mse[-1]:.3e} min w {torch.min(A['temporal_weights']).item():.2f}",
+              flush=True)
     return hist, {"mse_hist": mse, "min_weight": float(torch.min(A["temporal_weights"]).item())}
 
 
@@ -398,6 +403,11 @@ def main():
     ap.add_argument("--seeds", type=int, default=3, help="runs per model; run i uses torch.manual_seed(42 + i) (theirs: 42)")
     ap.add_argument("--outer", type=int, default=None, help="outer L-BFGS steps (theirs: 500 Burgers, 300 Allen-Cahn)")
     ap.add_argument("--threads", type=int, default=int(os.environ.get("OMP_NUM_THREADS", "2")))
+    ap.add_argument("--variant", default="authors", choices=["authors", "sched"],
+                    help="Allen-Cahn / Cahn-Hilliard only. authors: their notebook as is (float32, eps = 200). "
+                         "sched: ours - float64 and the causality parameter raised in stages, eps = 0.01, 0.1, 1, 10, 100 "
+                         "(Wang, Sankaran, Perdikaris 2024), moving on when all temporal weights exceed sigma; "
+                         "--outer is the cap per stage")
     ap.add_argument("--smoke", action="store_true", help="tiny grid, to test that the cells run (not a result)")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
@@ -406,10 +416,11 @@ def main():
                            else "TE,CHEBYSHEV,NONE,PINN-match,PINN-4x64,TE-twin")).split(",")
     outer = a.outer or (500 if a.pde == "burgers" else 300)
     out = a.out or os.path.join(H, "results", f"te_authors_{a.pde}.json")
-    A, T, P, torch = setup(a.pde, a.repo, a.threads, a.smoke)
+    A, T, P, torch = setup(a.pde, a.repo, a.threads, a.smoke, a.variant)
     A["_model_te"] = A["model"]
     import pennylane
-    ver = {"torch": torch.__version__, "pennylane": pennylane.__version__, "device": str(A["device"]), "commit": COMMIT[:7]}
+    ver = {"torch": torch.__version__, "pennylane": pennylane.__version__, "device": str(A["device"]), "commit": COMMIT[:7],
+           "variant": a.variant}
     print(ver, flush=True)
     dom = A["input_domain"]                                   # product(t, x), columns (t, x)
     tg = np.unique(dom[:, 0].detach().cpu().numpy()); xg = np.unique(dom[:, 1].detach().cpu().numpy())
