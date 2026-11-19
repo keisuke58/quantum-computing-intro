@@ -37,11 +37,27 @@ def make_qerc(N, seed, scale):
     return feat
 
 
-def make_qerc_reup(N, seed, scale, R, zfun=None, dz=2):
+def _shallow_unitary(N, g, depth):
+    """Shallow fixed random circuit as a dense 2^N x 2^N matrix: depth layers of [Haar 2x2 on every qubit, then CZ on
+    the nearest-neighbour chain 0-1, 1-2, ..., (N-2)-(N-1)]. Unlike a Haar 2^N x 2^N unitary it is not a 2-design for
+    small depth, so its outputs do not concentrate exponentially (Xiong et al., arXiv:2312.15124)."""
+    bits = (np.arange(2**N)[:, None] >> (N - 1 - np.arange(N))[None, :]) & 1
+    cz = np.prod(np.where(bits[:, :-1] & bits[:, 1:], -1.0, 1.0), axis=1) if N > 1 else np.ones(2**N)
+    U = np.eye(2**N, dtype=complex)
+    for _ in range(depth):
+        L = np.ones((1, 1), dtype=complex)
+        for _q in range(N):
+            z = (g.normal(size=(2, 2)) + 1j * g.normal(size=(2, 2))) / np.sqrt(2)
+            q, r = np.linalg.qr(z); L = np.kron(L, q * (np.diag(r) / np.abs(np.diag(r))))
+        U = cz[:, None] * (L @ U)
+    return U
+
+
+def make_qerc_reup(N, seed, scale, R, zfun=None, dz=2, shallow=0):
     """Reservoir with entangled (re-uploaded) encoding: R times [encode every qubit, then a fixed Haar unitary],
         |psi(x)> = U_R V_R(x) ... U_1 V_1(x) |0..0>,   V_r(x) = prod_l Rz(phi_{r,l}(x)) Ry(theta_{r,l}(x)),
     with the same angle map as make_qerc (fresh random W_r, b_r per layer) and features p_k = |<k|psi(x)>|^2.
-    R = 1 is the class of make_qerc. For R >= 2 the input enters after entanglement, so psi(x) is not a product
+    R = 1 is the class of make_qerc. shallow = d > 0 replaces each Haar unitary by a depth-d shallow random circuit. For R >= 2 the input enters after entanglement, so psi(x) is not a product
     state before the last unitary: the features leave the function space F_rho of the product encoding, and the
     O(N) classical evaluation of that space (make_product_rf) no longer applies."""
     g = np.random.default_rng(3000 + seed)
@@ -50,6 +66,9 @@ def make_qerc_reup(N, seed, scale, R, zfun=None, dz=2):
     bs = [jnp.asarray(g.normal(size=2 * N)) for _ in range(R)]
     Us = []
     for _ in range(R):
+        if shallow:
+            Us.append(jnp.asarray(_shallow_unitary(N, g, shallow)))
+            continue
         z = (g.normal(size=(2**N,) * 2) + 1j * g.normal(size=(2**N,) * 2)) / np.sqrt(2)
         q, r = np.linalg.qr(z); Us.append(jnp.asarray(q * (np.diag(r) / np.abs(np.diag(r)))))
 
@@ -272,6 +291,8 @@ def main():
         "tanh-deep3": ([2, 4, 8, 16, 32, 64], lambda sd, s: make_deep_rf(m, sd, s, 3)),
         "Fourier-deep2": ([2, 4, 8, 16, 32, 64], lambda sd, s: make_deep_rf(m, sd, s, 2, act="cos")),
         "QERC-reup4": ([4, 8, 16, 32, 64], lambda sd, s: make_qerc_reup(a.N, sd, s, 4)),
+        **{f"QERC-reup{R}-sh{d}": ([1, 2, 4, 8, 16, 32], (lambda R, d: lambda sd, s: make_qerc_reup(a.N, sd, s, R, shallow=d))(R, d))
+           for R in (1, 3, 6) for d in (1, 2)},
         "QERC-reup6": ([4, 8, 16, 32, 64], lambda sd, s: make_qerc_reup(a.N, sd, s, 6)),
     }
     grid = {k: v for k, v in grid.items() if k in a.models.split(",")}

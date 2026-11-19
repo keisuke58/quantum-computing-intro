@@ -86,6 +86,8 @@ run_job() {
     pf_2d_reup)
       python -u 59_ac2d_qerc.py --N 10 --seeds 3 --models QERC-reup2,QERC-reup3,QERC-reup4,tanh-deep2 --out results/server/ac2d_N10_reup.json
       python -u 68_ch2d_qerc.py --N 10 --seeds 3 --models QERC-reup2,QERC-reup3,QERC-reup4,tanh-deep2 --out results/server/ch2d_N10_reup.json ;;
+    pf_reup_shallow)
+      python -u 52_allen_cahn_qerc.py --D 1e-4 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --models QERC-reup1-sh1,QERC-reup3-sh1,QERC-reup6-sh1,QERC-reup3-sh2,QERC-reup6-sh2 --out results/server/allen_cahn_N${PFN:-8}_reup_shallow.json ;;
     pf_ac_product)
       python -u 52_allen_cahn_qerc.py --D 1e-4 --N 8 --seeds 5 --models QERC-Haar,product-RF --scales 2,4,8,16 --out results/server/allen_cahn_N8_product.json ;;
     pf_ac2d_low)
