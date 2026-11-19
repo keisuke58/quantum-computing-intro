@@ -58,6 +58,7 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | 28 | `te_ac`（`TEOUTER=1500`） | **Allen–Cahn を長く学習する**．24 番は 300 ステップで打ち切られ，因果性の重みが最後の時刻まで開かなかった（`min w` が 0.00 のまま，誤差 70〜110 %）．著者の図のデータは 762 ステップ分ある．上限を 1500 にして，重みが開いたら止まる著者の停止条件のまま回す．2 本：`qsub -v JOB=te_ac,TEMODEL=TE,TEOUTER=1500 scripts/pbs_job.sh` と `TEMODEL=classical`（固定の埋め込みは 24 番でロスが 0.11 から動かないので回さない）．`git pull` を先に | `results/server/te_authors_ac_TE_outer1500.json`，`te_authors_ac_classical_outer1500.json` | TE は 1 シード 最大 4 時間 | 完了（2026-11-18） |
 | 29 | `te_*`（`TEMODEL=rakala`） | **固定の埋め込み = Rakala さんのモデル**（村松先生の訂正，2026-11-18：固定の埋め込みは `github.com/GeetRakala/QPINN` のモデルを指す）．古典の層 → 量子回路（AngleEmbedding ＋ StronglyEntanglingLayers，4 量子ビット × 4 層）→ 古典の層．元の形（65 パラメータ），improved（261），improved を TE-QPINN の数にそろえたもの（Burgers 248，Allen–Cahn 209）の 3 つ．5 シード．`git pull` してから 3 本：`qsub -v JOB=te_burgers,TEMODEL=rakala scripts/pbs_job.sh`，`qsub -v JOB=te_ac,TEMODEL=rakala,TEOUTER=1500 scripts/pbs_job.sh`，`qsub -v JOB=te_ch,TEMODEL=rakala,TEOUTER=1500 scripts/pbs_job.sh` | `results/server/te_authors_burgers_rakala.json`，`te_authors_ac_rakala_outer1500.json`，`te_authors_ch_rakala_outer1500.json` | Burgers は数時間，Allen–Cahn・CH は 1 シード最大数時間 | 未実行 |
 | 30 | `pf_ac_reup` | **量子の優位性が出るかの実験：入力をエンタングルさせながら入れ直す量子リザバー**．今の量子リザバーは入力を量子ビットごとに別々に入れるので，古典でも安く作れる関数の範囲に収まる（論文の命題）．「入力を入れる → Haar ユニタリ」を 2 回・3 回くり返すと，その範囲の外に出る．Allen–Cahn（1 次元，最小二乗，これまでと同じ条件）で，くり返し 1・2・3 回を比べる．`.venv`（JAX）で動く．2 本：`qsub -v JOB=pf_ac_reup,PFN=8 scripts/pbs_job.sh` と `qsub -v JOB=pf_ac_reup,PFN=10,PFSEEDS=3 scripts/pbs_job.sh`．`git pull` を先に | `results/server/allen_cahn_N8_reup.json`，`allen_cahn_N10_reup.json` | N = 8 は 1 時間ほど，N = 10 は半日ほど | 未実行 |
+| 31 | `te_*`（`TEMODEL=tran`） | **Tran らの学習する量子の埋め込み（LQNN-TE，arXiv:2609.33700）**．補助の量子回路（入力を入れ直す回路）が量子ビットごとの特徴量を出し，主回路の角度に足す．論文から書き起こした（公開コードは見つかっていない）．パラメータ数は TE-QPINN にそろえた（Burgers 240，Allen–Cahn 204）．5 シード．`git pull` してから 3 本：`qsub -v JOB=te_burgers,TEMODEL=tran scripts/pbs_job.sh`，`qsub -v JOB=te_ac,TEMODEL=tran,TEOUTER=1500 scripts/pbs_job.sh`，`qsub -v JOB=te_ch,TEMODEL=tran,TEOUTER=1500 scripts/pbs_job.sh` | `results/server/te_authors_burgers_tran.json`，`te_authors_ac_tran_outer1500.json`，`te_authors_ch_tran_outer1500.json` | 回路が 2 つあるので TE の 3〜5 倍．Burgers は 1 シード数時間 | 未実行 |
 
 （`seeds5` / `tsv` / `array` は Claude 側の環境で回したので不要）
 
@@ -76,6 +77,7 @@ push できないときは `results/server/*.json` をチャットにアップ�
 | `TE` | 学習する埋め込み（小さな NN が量子ビットごとの倍率を出す）＋ 変分回路．著者の TE-QPINN |
 | `NONE` / `CHEBYSHEV` / `TOWER` | 固定の埋め込み（座標をそのまま／Chebyshev 型）＋ 同じ変分回路．著者のコードにある選択肢 |
 | `RAKALA` / `RAKALA-imp` / `RAKALA-match` | **固定の埋め込み（先生の意図したもの）**：Rakala さんの QPINN．古典の層で前後を挟んだ回路で，回路への入力は決まった角度埋め込み（29 番） |
+| `LQNN-TE` | Tran らの学習する量子の埋め込み（補助の量子回路の出力を角度に足す）．31 番 |
 | `NONE-match` など | 同じ固定の埋め込みで，変分回路を深くしてパラメータ数を `TE` にそろえたもの（26 番） |
 | `PINN-3x10` / `PINN-2x13` / `PINN-match` | パラメータ数をそろえた古典 PINN（著者の FNN クラス） |
 | `PINN-4x64` | 大きめの古典 PINN（参考） |
