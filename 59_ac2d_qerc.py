@@ -55,6 +55,23 @@ def make_fourier(m, seed, scale):
     return lambda p: jnp.cos(_z(p) @ W + b)
 
 
+def _ac1():
+    """the 1D module (52), for the feature constructors shared with the 2D solvers"""
+    import importlib.util, os
+    sp = importlib.util.spec_from_file_location("ac1", os.path.join(os.path.dirname(os.path.abspath(__file__)), "52_allen_cahn_qerc.py"))
+    m = importlib.util.module_from_spec(sp); sp.loader.exec_module(m)
+    return m
+
+
+def make_qerc_reup(N, seed, scale, R):
+    """re-uploading reservoir of 52 with the 2D periodic input map"""
+    return _ac1().make_qerc_reup(N, seed, scale, R, zfun=_z, dz=4)
+
+
+def make_deep_rf(m, seed, scale, R, act="tanh"):
+    return _ac1().make_deep_rf(m, seed, scale, R, act=act, zfun=_z, dz=4)
+
+
 def feature_mats(feat, P, chunk=512):
     f = jax.jit(jax.vmap(feat))
     lap = jax.jit(jax.vmap(lambda p: jnp.trace(jax.jacfwd(jax.jacfwd(feat))(p), axis1=1, axis2=2)))
@@ -193,6 +210,8 @@ def main():
         "QERC-Haar": ([1, 2, 4, 8], lambda sd, s: make_qerc(a.N, sd, s)),
         "tanh-RF": ([2, 4, 8, 16, 32], lambda sd, s: make_tanh(m, sd, s)),
         "Fourier": ([2, 4, 8, 16, 32], lambda sd, s: make_fourier(m, sd, s)),
+        **{f"QERC-reup{R}": ([0.5, 1, 2, 4, 8], (lambda R: lambda sd, s: make_qerc_reup(a.N, sd, s, R))(R)) for R in (2, 3, 4)},
+        "tanh-deep2": ([1, 2, 4, 8, 16], lambda sd, s: make_deep_rf(m, sd, s, 2)),
     }
     grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
     if a.scales:

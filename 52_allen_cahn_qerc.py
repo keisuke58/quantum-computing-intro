@@ -37,6 +37,75 @@ def make_qerc(N, seed, scale):
     return feat
 
 
+def _shallow_unitary(N, g, depth):
+    """Shallow fixed random circuit as a dense 2^N x 2^N matrix: depth layers of [Haar 2x2 on every qubit, then CZ on
+    the nearest-neighbour chain 0-1, 1-2, ..., (N-2)-(N-1)]. Unlike a Haar 2^N x 2^N unitary it is not a 2-design for
+    small depth, so its outputs do not concentrate exponentially (Xiong et al., arXiv:2312.15124)."""
+    bits = (np.arange(2**N)[:, None] >> (N - 1 - np.arange(N))[None, :]) & 1
+    cz = np.prod(np.where(bits[:, :-1] & bits[:, 1:], -1.0, 1.0), axis=1) if N > 1 else np.ones(2**N)
+    U = np.eye(2**N, dtype=complex)
+    for _ in range(depth):
+        L = np.ones((1, 1), dtype=complex)
+        for _q in range(N):
+            z = (g.normal(size=(2, 2)) + 1j * g.normal(size=(2, 2))) / np.sqrt(2)
+            q, r = np.linalg.qr(z); L = np.kron(L, q * (np.diag(r) / np.abs(np.diag(r))))
+        U = cz[:, None] * (L @ U)
+    return U
+
+
+def make_qerc_reup(N, seed, scale, R, zfun=None, dz=2, shallow=0):
+    """Reservoir with entangled (re-uploaded) encoding: R times [encode every qubit, then a fixed Haar unitary],
+        |psi(x)> = U_R V_R(x) ... U_1 V_1(x) |0..0>,   V_r(x) = prod_l Rz(phi_{r,l}(x)) Ry(theta_{r,l}(x)),
+    with the same angle map as make_qerc (fresh random W_r, b_r per layer) and features p_k = |<k|psi(x)>|^2.
+    R = 1 is the class of make_qerc. shallow = d > 0 replaces each Haar unitary by a depth-d shallow random circuit. For R >= 2 the input enters after entanglement, so psi(x) is not a product
+    state before the last unitary: the features leave the function space F_rho of the product encoding, and the
+    O(N) classical evaluation of that space (make_product_rf) no longer applies."""
+    g = np.random.default_rng(3000 + seed)
+    zfun = zfun or _z                     # 2D solvers pass their own periodic input map (dz = 4)
+    Ws = [jnp.asarray(g.normal(size=(dz, 2 * N)) * scale) for _ in range(R)]
+    bs = [jnp.asarray(g.normal(size=2 * N)) for _ in range(R)]
+    Us = []
+    for _ in range(R):
+        if shallow:
+            Us.append(jnp.asarray(_shallow_unitary(N, g, shallow)))
+            continue
+        z = (g.normal(size=(2**N,) * 2) + 1j * g.normal(size=(2**N,) * 2)) / np.sqrt(2)
+        q, r = np.linalg.qr(z); Us.append(jnp.asarray(q * (np.diag(r) / np.abs(np.diag(r)))))
+
+    def feat(x):
+        zz = zfun(x)
+        psi = jnp.zeros(2**N, dtype=complex).at[0].set(1.0)
+        for W, b, U in zip(Ws, bs, Us):
+            ang = jnp.pi * (jnp.tanh(zz @ W + b) + 1) / 2
+            psi = psi.reshape((2,) * N)
+            for l in range(N):
+                c, s_ = jnp.cos(ang[l] / 2), jnp.sin(ang[l] / 2)
+                e = jnp.exp(0.5j * ang[N + l])
+                V = jnp.array([[c / e, -s_ / e], [s_ * e, c * e]])          # Rz(phi) Ry(theta)
+                psi = jnp.moveaxis(jnp.tensordot(V, psi, axes=([1], [l])), 0, l)
+            psi = U @ psi.reshape(-1)
+        return jnp.abs(psi) ** 2
+    return feat
+
+
+def make_deep_rf(m, seed, scale, R, act="tanh", zfun=None, dz=2, gain=2.0):
+    """Classical control for the re-uploading reservoir: a random network with R hidden layers of width m,
+    h_1 = act(z W_1 + b_1), h_{r+1} = act(h_r W_{r+1} + b_{r+1}), features h_R (all weights random and fixed).
+    W_1 ~ scale * N(0, 1) as in make_tanh / make_fourier; inner W ~ gain / sqrt(m) * N(0, 1). R = 1 is make_tanh / make_fourier."""
+    zfun = zfun or _z
+    g = np.random.default_rng(5000 + seed)
+    Ws = [jnp.asarray(g.normal(size=(dz, m)) * scale)] + [jnp.asarray(g.normal(size=(m, m)) * gain / np.sqrt(m)) for _ in range(R - 1)]
+    bs = [jnp.asarray(g.normal(size=m) if act == "tanh" else g.random(m) * 2 * np.pi) for _ in range(R)]
+    f = jnp.tanh if act == "tanh" else jnp.cos
+
+    def feat(x):
+        h = zfun(x)
+        for W, b in zip(Ws, bs):
+            h = f(h @ W + b)
+        return h
+    return feat
+
+
 def make_product_rf(N, seed, scale):
     """Product random features with the same encoding (angles) as make_qerc:
     f_k(x) = prod_l <q_l(x)| A_{k,l} |q_l(x)>, A_{k,l} random 2x2 Hermitian. In the QERC function space,
@@ -215,6 +284,16 @@ def main():
         "tanh-RF": ([8, 16, 32, 64], lambda sd, s: make_tanh(m, sd, s)),
         "Fourier": ([8, 16, 32, 64], lambda sd, s: make_fourier(m, sd, s)),
         "product-RF": ([2, 4, 8, 16, 32], lambda sd, s: make_product_rf(a.N, sd, s)),
+        "QERC-reup2": ([0.5, 1, 2, 4, 8, 16], lambda sd, s: make_qerc_reup(a.N, sd, s, 2)),
+        "QERC-reup3": ([0.5, 1, 2, 4, 8, 16], lambda sd, s: make_qerc_reup(a.N, sd, s, 3)),
+        "QERC-reup1": ([2, 4, 8, 16, 32], lambda sd, s: make_qerc_reup(a.N, sd, s, 1)),
+        "tanh-deep2": ([2, 4, 8, 16, 32, 64], lambda sd, s: make_deep_rf(m, sd, s, 2)),
+        "tanh-deep3": ([2, 4, 8, 16, 32, 64], lambda sd, s: make_deep_rf(m, sd, s, 3)),
+        "Fourier-deep2": ([2, 4, 8, 16, 32, 64], lambda sd, s: make_deep_rf(m, sd, s, 2, act="cos")),
+        "QERC-reup4": ([4, 8, 16, 32, 64], lambda sd, s: make_qerc_reup(a.N, sd, s, 4)),
+        **{f"QERC-reup{R}-sh{d}": ([1, 2, 4, 8, 16, 32], (lambda R, d: lambda sd, s: make_qerc_reup(a.N, sd, s, R, shallow=d))(R, d))
+           for R in (1, 3, 6) for d in (1, 2)},
+        "QERC-reup6": ([4, 8, 16, 32, 64], lambda sd, s: make_qerc_reup(a.N, sd, s, 6)),
     }
     grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
     if a.scales:

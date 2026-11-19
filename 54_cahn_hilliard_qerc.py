@@ -154,6 +154,8 @@ def main():
         "QERC-Haar": ([1, 2, 4, 8, 16], lambda sd, s: ac.make_qerc(a.N, sd, s)),
         "tanh-RF": ([2, 4, 8, 16, 32], lambda sd, s: ac.make_tanh(m, sd, s)),
         "Fourier": ([2, 4, 8, 16, 32], lambda sd, s: ac.make_fourier(m, sd, s)),
+        **{f"QERC-reup{R}": ([1, 2, 4, 8, 16], (lambda R: lambda sd, s: ac.make_qerc_reup(a.N, sd, s, R))(R)) for R in (2, 3, 4, 6)},
+        "tanh-deep2": ([1, 2, 4, 8, 16, 32], lambda sd, s: ac.make_deep_rf(m, sd, s, 2)),
     }
     grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
     if a.scales:

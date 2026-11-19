@@ -160,6 +160,8 @@ def main():
         "QERC-Haar": ([0.25, 0.5, 1, 2, 4], lambda sd, s: ac2.make_qerc(a.N, sd, s)),
         "tanh-RF": ([0.5, 1, 2, 4, 8], lambda sd, s: ac2.make_tanh(m, sd, s)),
         "Fourier": ([0.5, 1, 2, 4, 8], lambda sd, s: ac2.make_fourier(m, sd, s)),
+        **{f"QERC-reup{R}": ([0.25, 0.5, 1, 2, 4], (lambda R: lambda sd, s: ac2.make_qerc_reup(a.N, sd, s, R))(R)) for R in (2, 3, 4)},
+        "tanh-deep2": ([0.5, 1, 2, 4, 8], lambda sd, s: ac2.make_deep_rf(m, sd, s, 2)),
     }
     grid = {k: v for k, v in grid.items() if k in a.models.split(",")}
     if a.scales:

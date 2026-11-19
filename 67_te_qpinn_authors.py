@@ -26,6 +26,8 @@ Models
                (github.com/GeetRakala/QPINN), classical layers around a circuit with a fixed AngleEmbedding;
                "original" (65 parameters), "improved" (261) and "improved" sized to the TE-QPINN. Re-implemented in
                torch from his JAX notebook (same architecture and initialisation), trained in the same set-up here
+  LQNN-TE      trainable quantum embedding of Tran et al., arXiv:2609.33700 (2026): an auxiliary re-uploading circuit
+               adds a feature to each encoding angle. Written from the paper; sized to the TE-QPINN parameter count
   PINN-3x10 / PINN-2x13   their classical PINNs for Burgers (261 / 235 parameters; the TE-QPINN has 244)
   PINN-match   Allen-Cahn: their FNN class sized to the TE-QPINN parameter count (2 x 12 = 205 vs 204)
   PINN-4x64    their FNN class, 4 x 64 (reference size)
@@ -272,6 +274,47 @@ def make_model(name, pde, A, T, P, torch):
             h3 = torch.tanh(circ(h2, qw) @ w3 + b3)
             return (h3 @ w4 + b4)[:, 0]
         return rak, [w1, b1, w2, b2, qw, w3, b3, w4, b4], (lambda x: torch.tanh(torch.sin(2.0 * torch.pi * (x01(x) @ w1 + b1)) @ w2 + b2))
+    if name == "LQNN-TE":
+        # Trainable quantum embedding of Tran, Dehaghani, Mengel, Wisniewski, Aguiar, arXiv:2609.33700 (2026), Sec. IV-C:
+        # an auxiliary re-uploading circuit gives one feature per wire, b_i = pi <Z_(i mod n_emb)>, and the main circuit
+        # is encoded with RY(x_c(i) + b_i) (additive, not multiplicative as in the TE-QPINN). Written from the paper
+        # (no public code found). Auxiliary circuit, per layer: RX(t) on the wires of t and RY(x) on the wires of x,
+        # then trainable RX RY RZ on every wire and a nearest-neighbour CNOT chain. The main circuit is the authors'
+        # (Berger et al.) ansatz with the same width and depth as the TE-QPINN here; the number of auxiliary layers
+        # is chosen so that the parameter count matches the TE-QPINN (theirs: main 8 x 15, auxiliary 4 x 30, 720).
+        import pennylane as qml
+        ne = nq
+        le = max(1, round((n_par([torch.zeros(nl, nq, 3), *emb_net().parameters()]) - 3 * nl * nq) / (3 * ne)))
+
+        def aux(xr, w):
+            for l in range(le):
+                for i in range(ne):
+                    (qml.RX if comp[i] == 0 else qml.RY)(xr[:, comp[i]], wires=i)
+                for i in range(ne):
+                    qml.RX(w[l, i, 0], wires=i); qml.RY(w[l, i, 1], wires=i); qml.RZ(w[l, i, 2], wires=i)
+                for i in range(ne - 1):
+                    qml.CNOT(wires=[i, i + 1])
+            return [qml.expval(qml.PauliZ(i)) for i in range(ne)]
+
+        def main_c(g, w):
+            for i in range(nq):
+                qml.RY(g[:, i], wires=i)
+            for l in range(nl):
+                for i in range(nq):
+                    qml.RX(w[l, i, 0], wires=i); qml.RY(w[l, i, 1], wires=i); qml.RZ(w[l, i, 2], wires=i)
+                for i in range(nq - 1):
+                    qml.CNOT(wires=[i, i + 1])
+            return qml.expval(qml.sum(*[qml.PauliZ(i) for i in range(nq)]))
+        qa = qml.QNode(aux, qml.device("default.qubit", wires=ne), interface="torch", diff_method="backprop")
+        qm = qml.QNode(main_c, qml.device("default.qubit", wires=nq), interface="torch", diff_method="backprop")
+        w_emb = (two_pi * torch.rand(le, ne, 3, device=dev)).requires_grad_(True)
+        w_var = new_theta()
+
+        def ang(x):
+            xr = resc(x)
+            b = torch.pi * torch.stack(list(qa(xr, w_emb)), dim=-1).to(xr.dtype)
+            return xr[:, comp] + b[:, [i % ne for i in range(nq)]]
+        return (lambda x: qm(ang(x), w_var).to(x.dtype)), [w_var, w_emb], ang
     raise ValueError(name)
 
 
