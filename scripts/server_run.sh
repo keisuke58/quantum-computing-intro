@@ -75,6 +75,17 @@ run_job() {
     pf_ac_reup_more)
       python -u 52_allen_cahn_qerc.py --D 1e-4 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --models QERC-reup2,QERC-reup3 --scales 32,64 --out results/server/allen_cahn_N${PFN:-8}_reup_wide.json
       python -u 52_allen_cahn_qerc.py --D 1e-4 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --models QERC-reup4,QERC-reup6 --out results/server/allen_cahn_N${PFN:-8}_reup_deep.json ;;
+    pf_reup_dt)
+      # finer time step: tanh and the re-uploading reservoir both sit at the BDF2 error (5e-6) with dt = 1e-3
+      python -u 52_allen_cahn_qerc.py --D 1e-4 --N 10 --seeds 3 --dt 2.5e-4 --models tanh-RF,Fourier --scales 32,64,128 --out results/server/allen_cahn_N10_dt_classical.json
+      python -u 52_allen_cahn_qerc.py --D 1e-4 --N 10 --seeds 3 --dt 2.5e-4 --models QERC-reup4,QERC-reup6 --scales 8,16,32 --out results/server/allen_cahn_N10_dt_reup.json ;;
+    pf_deep_rf)
+      python -u 52_allen_cahn_qerc.py --D 1e-4 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --models tanh-deep2,tanh-deep3,Fourier-deep2 --out results/server/allen_cahn_N${PFN:-8}_deep.json ;;
+    pf_ch_reup)
+      python -u 54_cahn_hilliard_qerc.py --eps2 1e-6 --g2 0.01 --ic cos2 --ref_modes 1024 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --models QERC-reup2,QERC-reup3,QERC-reup4,QERC-reup6,tanh-deep2 --out results/server/cahn_hilliard_wz_N${PFN:-8}_reup.json ;;
+    pf_2d_reup)
+      python -u 59_ac2d_qerc.py --N 10 --seeds 3 --models QERC-reup2,QERC-reup3,QERC-reup4,tanh-deep2 --out results/server/ac2d_N10_reup.json
+      python -u 68_ch2d_qerc.py --N 10 --seeds 3 --models QERC-reup2,QERC-reup3,QERC-reup4,tanh-deep2 --out results/server/ch2d_N10_reup.json ;;
     pf_ac_product)
       python -u 52_allen_cahn_qerc.py --D 1e-4 --N 8 --seeds 5 --models QERC-Haar,product-RF --scales 2,4,8,16 --out results/server/allen_cahn_N8_product.json ;;
     pf_ac2d_low)
