@@ -7,7 +7,7 @@
   計算は必ず PBS/Torque の `qsub` で計算ノードに投げる（vancouver01/02 = RTX 4090、stuttgart01–03 = RTX 3090）。
 - ジョブスクリプトの要点（`server_run.sh` の各ジョブの中身をそのまま書く）：
   ```bash
-  #PBS -l nodes=1:ppn=2:gpus=1:vancouver01      # ノードを固定（celtic03 は GPU 故障）
+  #PBS -l nodes=1:ppn=2:gpus=1:vancouver01      # ノードを固定（celtic03 は GPU 故障．stuttgart01 の 0000:1a:00 と stuttgart03 の 0000:b3:00 も Xid 79 で故障，2026-11-20）
   #PBS -j oe
   #PBS -o <repo>/logs/<job>.log
   unset LD_LIBRARY_PATH                         # PBS の /usr/local/cuda/lib64 が pip の CUDA とぶつかる
