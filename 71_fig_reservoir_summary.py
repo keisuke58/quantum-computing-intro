@@ -52,7 +52,7 @@ def main():
     ax.scatter([], [], s=90, marker="o", facecolor="white", edgecolor=Q, lw=1.8, label="量子リザバー（入力 1 回）")
     ax.scatter([], [], s=90, marker="o", facecolor=Q, edgecolor=Q, label="量子リザバー（入れ直し，最良）")
     ax.scatter([], [], s=90, marker="s", facecolor=C, edgecolor=C, label="古典の乱数特徴量（最良）")
-    ax.set_yscale("log"); ax.set_ylim(1e-7, 0.4)
+    ax.set_yscale("log"); ax.set_ylim(3e-8, 0.4)
     ax.set_xticks(range(len(PROBLEMS))); ax.set_xticklabels([p[0] for p in PROBLEMS])
     ax.set_ylabel("最終時刻の相対 $L_2$ 誤差"); ax.grid(True, axis="y", color="#e8e8e8", lw=0.6); ax.set_axisbelow(True)
     ax.legend(frameon=False, fontsize=10.5, loc="lower left", bbox_to_anchor=(1.0, 0.35))

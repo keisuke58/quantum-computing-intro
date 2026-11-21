@@ -94,6 +94,9 @@ run_job() {
       python -u 54_cahn_hilliard_qerc.py $CH --models tanh-deep3,Fourier-deep2 --out results/server/cahn_hilliard_wz_N${PFN:-8}_fair_deep.json
       python -u 54_cahn_hilliard_qerc.py $CH --models tanh-RF,Fourier --scales 64,128,256 --out results/server/cahn_hilliard_wz_N${PFN:-8}_fair_wide.json
       python -u 52_allen_cahn_qerc.py --D 1e-4 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --models Fourier --scales 128,256 --out results/server/allen_cahn_N${PFN:-8}_fair_wide.json ;;
+    pf_fair_ch_reup)
+      # the re-uploading reservoir had its best scale at the upper edge (16) for Cahn-Hilliard, N = 10
+      python -u 54_cahn_hilliard_qerc.py --eps2 1e-6 --g2 0.01 --ic cos2 --ref_modes 1024 --N 10 --seeds 3 --models QERC-reup4,QERC-reup6 --scales 32,64 --out results/server/cahn_hilliard_wz_N10_fair_reup.json ;;
     pf_fair_2d)
       python -u 59_ac2d_qerc.py --N 10 --seeds 3 --models QERC-reup2,QERC-reup3,QERC-reup4 --scales 0.125,0.25 --out results/server/ac2d_N10_fair_reup.json
       python -u 59_ac2d_qerc.py --N 10 --seeds 3 --models tanh-deep2 --scales 0.25,0.5 --out results/server/ac2d_N10_fair_deep.json
