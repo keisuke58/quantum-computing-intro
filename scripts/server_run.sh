@@ -88,6 +88,20 @@ run_job() {
       python -u 68_ch2d_qerc.py --N 10 --seeds 3 --models QERC-reup2,QERC-reup3,QERC-reup4,tanh-deep2 --out results/server/ch2d_N10_reup.json ;;
     pf_reup_shallow)
       python -u 52_allen_cahn_qerc.py --D 1e-4 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --models QERC-reup1-sh1,QERC-reup3-sh1,QERC-reup6-sh1,QERC-reup3-sh2,QERC-reup6-sh2 --out results/server/allen_cahn_N${PFN:-8}_reup_shallow.json ;;
+    pf_fair_1d)
+      # fairness checks: deep classical features for Cahn-Hilliard, and wider scale ranges where the best scale sat at the edge
+      CH="--eps2 1e-6 --g2 0.01 --ic cos2 --ref_modes 1024 --N ${PFN:-8} --seeds ${PFSEEDS:-5}"
+      python -u 54_cahn_hilliard_qerc.py $CH --models tanh-deep3,Fourier-deep2 --out results/server/cahn_hilliard_wz_N${PFN:-8}_fair_deep.json
+      python -u 54_cahn_hilliard_qerc.py $CH --models tanh-RF,Fourier --scales 64,128,256 --out results/server/cahn_hilliard_wz_N${PFN:-8}_fair_wide.json
+      python -u 52_allen_cahn_qerc.py --D 1e-4 --N ${PFN:-8} --seeds ${PFSEEDS:-5} --models Fourier --scales 128,256 --out results/server/allen_cahn_N${PFN:-8}_fair_wide.json ;;
+    pf_fair_ch_reup)
+      # the re-uploading reservoir had its best scale at the upper edge (16) for Cahn-Hilliard, N = 10
+      python -u 54_cahn_hilliard_qerc.py --eps2 1e-6 --g2 0.01 --ic cos2 --ref_modes 1024 --N 10 --seeds 3 --models QERC-reup4,QERC-reup6 --scales 32,64 --out results/server/cahn_hilliard_wz_N10_fair_reup.json ;;
+    pf_fair_2d)
+      python -u 59_ac2d_qerc.py --N 10 --seeds 3 --models QERC-reup2,QERC-reup3,QERC-reup4 --scales 0.125,0.25 --out results/server/ac2d_N10_fair_reup.json
+      python -u 59_ac2d_qerc.py --N 10 --seeds 3 --models tanh-deep2 --scales 0.25,0.5 --out results/server/ac2d_N10_fair_deep.json
+      python -u 68_ch2d_qerc.py --N 10 --seeds 3 --models QERC-reup2,QERC-reup3,QERC-reup4 --scales 0.0625,0.125 --out results/server/ch2d_N10_fair_reup.json
+      python -u 68_ch2d_qerc.py --N 10 --seeds 3 --models tanh-deep2 --scales 0.125,0.25 --out results/server/ch2d_N10_fair_deep.json ;;
     pf_ac_product)
       python -u 52_allen_cahn_qerc.py --D 1e-4 --N 8 --seeds 5 --models QERC-Haar,product-RF --scales 2,4,8,16 --out results/server/allen_cahn_N8_product.json ;;
     pf_ac2d_low)
